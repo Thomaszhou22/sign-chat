@@ -32,3 +32,4 @@ __pycache__/
 # Training artifacts
 training/models/
 training/data/*.csv
+.vercel

@@ -6,6 +6,7 @@ const SUPPORTED_GESTURES = [
   { group: 'ASL Letters', items: ['A','B','C','D','E','F','G','H','I','J','K','L','O','R','S','U','V','W','Y'] },
   { group: 'Numbers', items: ['0','1','2','3','4','5','6','7','8','9'] },
   { group: 'Phrases', items: ['I Love You','OK','Good / Yes','Bad / No','Peace','Rock On','Call Me','Stop','Point'] },
+  { group: 'Controls', items: ['Fist = Space', 'Open Palm = Delete'] },
 ];
 
 function speak(text: string) {
@@ -22,41 +23,144 @@ function speak(text: string) {
 export default function App() {
   const [currentGesture, setCurrentGesture] = useState<GestureResult | null>(null);
   const [handDetected, setHandDetected] = useState(false);
+  const [currentWord, setCurrentWord] = useState('');
+  const [sentence, setSentence] = useState('');
   const [history, setHistory] = useState<{ label: string; time: string; emoji?: string }[]>([]);
   const [showRef, setShowRef] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const lastSpokenRef = useRef<{ label: string; time: number } | null>(null);
+  const handLostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLetterRef = useRef<string | null>(null);
+  const lastLetterTimeRef = useRef<number>(0);
+  const WORD_TIMEOUT = 1500; // ms without detection = word ends
+  const LETTER_COOLDOWN = 400; // ms between accepting new letters
+
+  const commitWord = useCallback(() => {
+    setCurrentWord((word) => {
+      if (word.length > 0) {
+        setSentence((prev) => {
+          const newSentence = prev ? prev + ' ' + word : word;
+          if (autoSpeak) speak(word);
+          return newSentence;
+        });
+        return '';
+      }
+      return word;
+    });
+  }, [autoSpeak]);
+
+
+
+  const addLetter = useCallback((letter: string) => {
+    const now = Date.now();
+    if (now - lastLetterTimeRef.current < LETTER_COOLDOWN) return;
+    if (letter === lastLetterRef.current && now - lastLetterTimeRef.current < 2000) return;
+
+    lastLetterRef.current = letter;
+    lastLetterTimeRef.current = now;
+
+    setCurrentWord((word) => word + letter);
+
+    setHistory((prev) => {
+      const entry = {
+        label: letter,
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      };
+      const next = [entry, ...prev];
+      return next.slice(0, 50);
+    });
+  }, []);
 
   const onGesture = useCallback(
     (result: GestureResult | null) => {
       setCurrentGesture(result);
 
       if (result) {
-        const now = Date.now();
-        const last = lastSpokenRef.current;
-        const isDuplicate = last && last.label === result.label && now - last.time < 3000;
+        // Reset hand-lost timer
+        if (handLostTimerRef.current) {
+          clearTimeout(handLostTimerRef.current);
+          handLostTimerRef.current = null;
+        }
 
-        if (!isDuplicate) {
-          lastSpokenRef.current = { label: result.label, time: now };
+        const label = result.label;
 
-          if (autoSpeak) {
-            speak(result.label);
+        // Control gestures
+        if (label === 'E' || label === 'S') {
+          // Fist-like gestures = space (word boundary)
+          // E and S are both fist-like, use as word separator
+          if (lastLetterRef.current !== '__SPACE__') {
+            lastLetterRef.current = '__SPACE__';
+            lastLetterTimeRef.current = Date.now();
+            commitWord();
           }
+          return;
+        }
 
-          setHistory((prev) => {
-            const entry = {
-              label: result.label,
-              time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-              emoji: result.emoji,
-            };
-            const next = [entry, ...prev];
-            return next.slice(0, 50);
-          });
+        // Only add letters and numbers to the word
+        if (result.category === 'letter' || result.category === 'number') {
+          addLetter(label);
+        } else if (result.category === 'phrase') {
+          // Phrases go directly to sentence
+          const now = Date.now();
+          const last = lastSpokenRef.current;
+          if (!last || last.label !== label || now - last.time > 3000) {
+            lastSpokenRef.current = { label, time: now };
+            setSentence((prev) => {
+              const sep = prev && !prev.endsWith(' ') ? ' ' : '';
+              const newSentence = prev + sep + label;
+              if (autoSpeak) speak(label);
+              return newSentence;
+            });
+            setHistory((prev) => {
+              const entry = {
+                label,
+                time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                emoji: result.emoji,
+              };
+              return [entry, ...prev].slice(0, 50);
+            });
+          }
         }
       }
     },
-    [autoSpeak]
+    [addLetter, commitWord, autoSpeak]
   );
+
+  const onHandDetected = useCallback(
+    (detected: boolean) => {
+      setHandDetected(detected);
+
+      if (!detected) {
+        // Start word timeout
+        if (!handLostTimerRef.current) {
+          handLostTimerRef.current = setTimeout(() => {
+            commitWord();
+            handLostTimerRef.current = null;
+            lastLetterRef.current = null;
+          }, WORD_TIMEOUT);
+        }
+      } else {
+        // Cancel timeout
+        if (handLostTimerRef.current) {
+          clearTimeout(handLostTimerRef.current);
+          handLostTimerRef.current = null;
+        }
+      }
+    },
+    [commitWord]
+  );
+
+  const clearAll = () => {
+    setSentence('');
+    setCurrentWord('');
+    setHistory([]);
+    lastLetterRef.current = null;
+  };
+
+  const speakSentence = () => {
+    const text = sentence + (currentWord ? ' ' + currentWord : '');
+    if (text) speak(text);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -68,7 +172,7 @@ export default function App() {
               SignChat
             </h1>
             <p className="text-sm text-gray-400 mt-1">
-              Real-time sign language translator. Show your hand to the camera.
+              Spell words letter by letter. Remove hand for 1.5s to finish a word.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -93,13 +197,48 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto p-6">
+        {/* Sentence output */}
+        <div className="mb-6 bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs uppercase tracking-wider text-gray-500">
+              Output
+            </p>
+            <div className="flex gap-2">
+              {(sentence || currentWord) && (
+                <button
+                  onClick={speakSentence}
+                  className="text-xs text-cyan-400 hover:text-cyan-300"
+                >
+                  Read Aloud
+                </button>
+              )}
+              {(sentence || currentWord) && (
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="min-h-[3rem]">
+            <span className="text-3xl font-light tracking-wide">
+              {sentence}
+              {sentence && currentWord ? ' ' : ''}
+              <span className="text-cyan-400">{currentWord}</span>
+              <span className="animate-pulse text-cyan-400">|</span>
+            </span>
+          </div>
+        </div>
+
         <div className={`grid gap-6 ${showRef ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
           {/* Camera */}
           <div className="lg:col-span-1">
             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
               <HandTracker
                 onGesture={onGesture}
-                onHandDetected={setHandDetected}
+                onHandDetected={onHandDetected}
               />
             </div>
             <div className="mt-3 flex items-center gap-2">
@@ -214,7 +353,7 @@ export default function App() {
               </div>
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <p className="text-xs text-gray-500">
-                  Tip: Hold your hand steady for about half a second for the gesture to be recognized. Good lighting and a clear background help accuracy.
+                  Tip: Spell letter by letter. Remove your hand from the camera for 1.5 seconds to finish the current word. Hold steady for accurate recognition.
                 </p>
               </div>
             </div>
