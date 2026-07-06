@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+training/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Training artifacts
+training/models/
+training/data/*.csv
