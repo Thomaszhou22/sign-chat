@@ -5,14 +5,14 @@ import { analyzeHand, classifyGesture } from '../lib/gestureRecognizer';
 import type { GestureResult } from '../lib/gestureRecognizer';
 
 interface HandTrackerProps {
-  onGesture: (result: GestureResult | null, landmarks: any[]) => void;
+  onSignHand: (result: GestureResult | null) => void;
+  onControlHand: (action: 'space' | 'delete' | null) => void;
   onHandDetected: (detected: boolean) => void;
 }
 
 let gestureRecognizer: GestureRecognizer | null = null;
 let lastVideoTime = -1;
 
-// Initialize MediaPipe Gesture Recognizer
 async function initGestureRecognizer(): Promise<GestureRecognizer> {
   const vision = await FilesetResolver.forVisionTasks(
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
@@ -24,7 +24,7 @@ async function initGestureRecognizer(): Promise<GestureRecognizer> {
       delegate: 'GPU'
     },
     runningMode: 'VIDEO',
-    numHands: 1,
+    numHands: 2,
     minHandDetectionConfidence: 0.7,
     minHandPresenceConfidence: 0.7,
     minTrackingConfidence: 0.5
@@ -33,11 +33,13 @@ async function initGestureRecognizer(): Promise<GestureRecognizer> {
   return recognizer;
 }
 
-export default function HandTracker({ onGesture, onHandDetected }: HandTrackerProps) {
+export default function HandTracker({ onSignHand, onControlHand, onHandDetected }: HandTrackerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastGestureRef = useRef<string | null>(null);
+  const lastSignRef = useRef<string | null>(null);
   const stableCountRef = useRef(0);
+  const lastControlRef = useRef<string | null>(null);
+  const controlStableRef = useRef(0);
   const STABLE_THRESHOLD = 8;
 
   const drawLandmarks = useCallback((results: GestureRecognizerResult) => {
@@ -51,8 +53,12 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (results.landmarks && results.landmarks.length > 0) {
-      const landmarks = results.landmarks[0];
+    if (!results.landmarks) return;
+
+    results.landmarks.forEach((landmarks, handIdx) => {
+      const handedness = results.handednesses[handIdx]?.[0]?.categoryName;
+      const isSignHand = handedness === 'Left'; // Left in video = user's right hand
+      const color = isSignHand ? '#22d3ee' : '#f59e0b';
 
       // Draw connections
       const connections = [
@@ -64,7 +70,7 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
         [5, 9], [9, 13], [13, 17],
       ];
 
-      ctx.strokeStyle = '#22d3ee';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       connections.forEach(([a, b]) => {
         const p1 = landmarks[a];
@@ -75,18 +81,27 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
         ctx.stroke();
       });
 
-      // Draw landmarks
       landmarks.forEach((lm, i) => {
         const x = lm.x * canvas.width;
         const y = lm.y * canvas.height;
         ctx.beginPath();
         ctx.arc(x, y, i % 4 === 0 ? 6 : 4, 0, 2 * Math.PI);
-        ctx.fillStyle = i === 0 ? '#f59e0b' : i === 4 || i === 8 || i === 12 || i === 16 || i === 20
-          ? '#ef4444'
-          : '#22d3ee';
+        ctx.fillStyle = color;
         ctx.fill();
       });
-    }
+
+      // Label
+      if (landmarks.length > 0) {
+        const wrist = landmarks[0];
+        ctx.font = '14px sans-serif';
+        ctx.fillStyle = color;
+        ctx.fillText(
+          isSignHand ? 'SIGN' : 'CTRL',
+          wrist.x * canvas.width - 20,
+          wrist.y * canvas.height + 25
+        );
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -102,57 +117,93 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
       const video = videoRef.current;
       if (video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
-        
+
         const results = await gestureRecognizer.recognizeForVideo(video, performance.now());
-        
+
         drawLandmarks(results);
 
         if (!results.landmarks || results.landmarks.length === 0) {
           onHandDetected(false);
-          lastGestureRef.current = null;
+          lastSignRef.current = null;
           stableCountRef.current = 0;
-          onGesture(null, []);
-        } else {
-          onHandDetected(true);
-          const landmarks = results.landmarks[0];
-          const handedness = results.handednesses[0]?.[0]?.categoryName === 'Left' ? 'right' : 'left';
+          lastControlRef.current = null;
+          controlStableRef.current = 0;
+          onSignHand(null);
+          return;
+        }
 
-          // Use both MediaPipe's built-in recognition and our custom classifier
-          const builtInGesture = results.gestures[0]?.[0]?.categoryName;
-          
-          // Also use our custom classifier
-          const hand = analyzeHand(landmarks, handedness);
-          const customResult = classifyGesture(hand);
+        onHandDetected(true);
 
-          // Prefer built-in if available, otherwise use custom
-          let result: GestureResult | null = null;
-          
-          if (builtInGesture && builtInGesture !== 'None' && results.gestures[0]?.[0]?.score > 0.7) {
-            result = {
-              label: builtInGesture,
-              category: 'phrase',
-              confidence: results.gestures[0][0].score
-            };
-          } else if (customResult) {
-            result = customResult;
-          }
+        let signHandResult: GestureResult | null = null;
+        let controlAction: 'space' | 'delete' | null = null;
 
-          if (result) {
-            if (result.label === lastGestureRef.current) {
-              stableCountRef.current++;
-              if (stableCountRef.current >= STABLE_THRESHOLD) {
-                onGesture(result, landmarks);
+        results.landmarks.forEach((landmarks, handIdx) => {
+          const handedness = results.handednesses[handIdx]?.[0]?.categoryName;
+          // Camera mirrors: "Left" in MediaPipe = user's right hand (sign hand)
+          const isSignHand = handedness === 'Left';
+
+          if (isSignHand) {
+            // Sign hand: classify letters/numbers
+            const hand = analyzeHand(landmarks, 'right');
+            const customResult = classifyGesture(hand);
+            const builtIn = results.gestures[handIdx]?.[0];
+
+            let result: GestureResult | null = null;
+            if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7) {
+              result = {
+                label: builtIn.categoryName,
+                category: 'phrase',
+                confidence: builtIn.score,
+              };
+            } else if (customResult) {
+              result = customResult;
+            }
+
+            // Only accept letters and numbers for spelling
+            if (result && (result.category === 'letter' || result.category === 'number')) {
+              if (result.label === lastSignRef.current) {
+                stableCountRef.current++;
+                if (stableCountRef.current >= STABLE_THRESHOLD) {
+                  signHandResult = result;
+                }
+              } else {
+                lastSignRef.current = result.label;
+                stableCountRef.current = 1;
               }
             } else {
-              lastGestureRef.current = result.label;
-              stableCountRef.current = 1;
+              lastSignRef.current = null;
+              stableCountRef.current = 0;
             }
           } else {
-            lastGestureRef.current = null;
-            stableCountRef.current = 0;
-            onGesture(null, landmarks);
+            // Control hand: fist = space, open palm = delete
+            const hand = analyzeHand(landmarks, 'left');
+            const fingers = hand.fingers;
+            const allClosed = !fingers.thumb.extended && !fingers.index.extended && !fingers.middle.extended && !fingers.ring.extended && !fingers.pinky.extended;
+            const allOpen = fingers.thumb.extended && fingers.index.extended && fingers.middle.extended && fingers.ring.extended && fingers.pinky.extended;
+
+            let action: 'space' | 'delete' | null = null;
+            if (allClosed) action = 'space';
+            else if (allOpen) action = 'delete';
+
+            if (action) {
+              if (action === lastControlRef.current) {
+                controlStableRef.current++;
+                if (controlStableRef.current >= STABLE_THRESHOLD) {
+                  controlAction = action;
+                }
+              } else {
+                lastControlRef.current = action;
+                controlStableRef.current = 1;
+              }
+            } else {
+              lastControlRef.current = null;
+              controlStableRef.current = 0;
+            }
           }
-        }
+        });
+
+        onSignHand(signHandResult);
+        onControlHand(controlAction);
       }
 
       if (mounted) {
@@ -163,13 +214,12 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
     const init = async () => {
       try {
         gestureRecognizer = await initGestureRecognizer();
-        
+
         if (!mounted) return;
 
-        // Start video
         if (videoRef.current) {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { width: 640, height: 480 } 
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480 }
           });
           videoRef.current.srcObject = stream;
           videoRef.current.addEventListener('loadeddata', () => {
@@ -193,7 +243,7 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [drawLandmarks, onGesture, onHandDetected]);
+  }, [drawLandmarks, onSignHand, onControlHand, onHandDetected]);
 
   return (
     <div className="relative w-full h-full">
