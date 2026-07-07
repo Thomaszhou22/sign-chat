@@ -1,15 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Level } from '../data/curriculum';
 import HandTracker from './HandTracker';
 import type { GestureResult } from '../lib/gestureRecognizer';
 
 interface PracticeViewProps {
   level: Level;
-  progress: { completed: string[]; mastered: string[] };
   onUpdateProgress: (levelId: string, signLabel: string, type: 'completed' | 'mastered') => void;
+  onStartTest: () => void;
+  onStartReview: () => void;
 }
 
-export default function PracticeView({ level, onUpdateProgress }: PracticeViewProps) {
+export default function PracticeView({ level, onUpdateProgress, onStartTest, onStartReview }: PracticeViewProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentSign, setCurrentSign] = useState(level.signs[0]);
   const [detectedGesture, setDetectedGesture] = useState<GestureResult | null>(null);
@@ -17,6 +18,35 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
   const [handDetected, setHandDetected] = useState(false);
   const [score, setScore] = useState({ correct: 0, wrong: 0 });
   const [showHint, setShowHint] = useState(true);
+
+  // Load mistakes from localStorage for tracking
+  const [, setMistakes] = useState<{ sign: string; count: number; lastAttempt: number }[]>([]);
+  
+  useEffect(() => {
+    const saved = localStorage.getItem(`mistakes-${level.id}`);
+    if (saved) setMistakes(JSON.parse(saved));
+  }, [level.id]);
+
+  const recordMistake = (signLabel: string) => {
+    setMistakes(prev => {
+      const existing = prev.find(m => m.sign === signLabel);
+      let updated;
+      if (existing) {
+        updated = prev.map(m => m.sign === signLabel ? { ...m, count: m.count + 1, lastAttempt: Date.now() } : m);
+      } else {
+        updated = [...prev, { sign: signLabel, count: 1, lastAttempt: Date.now() }];
+      }
+      localStorage.setItem(`mistakes-${level.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const playVoice = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
 
   const handleGestureDetected = useCallback((result: GestureResult | null) => {
     setDetectedGesture(result);
@@ -28,6 +58,7 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
         setFeedback('correct');
         setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
         onUpdateProgress(level.id, currentSign.label, 'mastered');
+        playVoice(currentSign.label);
 
         setTimeout(() => {
           if (currentIndex < level.signs.length - 1) {
@@ -40,7 +71,8 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
       } else {
         setFeedback('wrong');
         setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
-        setTimeout(() => setFeedback(null), 1000);
+        recordMistake(currentSign.label);
+        setTimeout(() => setFeedback(null), 1500);
       }
     }
   }, [currentSign, currentIndex, level, onUpdateProgress]);
@@ -66,7 +98,6 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
   return (
     <div className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Left: Camera */}
         <div>
           <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 mb-4">
             <HandTracker
@@ -82,11 +113,15 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
           </div>
 
           {detectedGesture && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div className={`rounded-xl p-4 border ${
+              feedback === 'correct' ? 'bg-green-900/20 border-green-700' :
+              feedback === 'wrong' ? 'bg-red-900/20 border-red-700' :
+              'bg-gray-900 border-gray-800'
+            }`}>
               <p className="text-sm text-gray-400 mb-2">Detected:</p>
               <div className={`text-3xl font-bold ${
-                feedback === 'correct' ? 'text-green-500' :
-                feedback === 'wrong' ? 'text-red-500' :
+                feedback === 'correct' ? 'text-green-400' :
+                feedback === 'wrong' ? 'text-red-400' :
                 'text-gray-400'
               }`}>
                 {detectedGesture.label}
@@ -97,7 +132,6 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
           )}
         </div>
 
-        {/* Right: Instruction */}
         <div className="space-y-4">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
             <div className="text-center mb-6">
@@ -108,8 +142,8 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
 
             {showHint && (
               <div className="border-t border-gray-800 pt-6">
-                <p className="text-sm font-semibold text-gray-300 mb-3">Key Points:</p>
-                <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-300 mb-3">How to sign:</p>
+                <div className="space-y-2 mb-4">
                   {currentSign.keypoints.map((point, i) => (
                     <div key={i} className="flex items-start gap-2">
                       <span className="text-cyan-500 mt-1">•</span>
@@ -117,6 +151,19 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
                     </div>
                   ))}
                 </div>
+                {currentSign.hints && currentSign.hints.length > 0 && (
+                  <>
+                    <p className="text-sm font-semibold text-yellow-400 mb-2">Tips:</p>
+                    <div className="space-y-2">
+                      {currentSign.hints.map((hint, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-yellow-500 mt-1">💡</span>
+                          <span className="text-sm text-yellow-200/80">{hint}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -127,7 +174,7 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
               disabled={currentIndex === 0}
               className="px-4 py-3 bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
             >
-              ← Previous
+              ← Prev
             </button>
             <button
               onClick={() => setShowHint(!showHint)}
@@ -141,6 +188,21 @@ export default function PracticeView({ level, onUpdateProgress }: PracticeViewPr
               className="flex-1 px-4 py-3 bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
             >
               Skip →
+            </button>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onStartTest}
+              className="flex-1 px-4 py-3 bg-purple-700 rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Start Test
+            </button>
+            <button
+              onClick={onStartReview}
+              className="flex-1 px-4 py-3 bg-orange-700 rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              Review Mistakes
             </button>
           </div>
 

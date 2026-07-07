@@ -6,9 +6,11 @@ interface LessonViewProps {
   progress: { completed: string[]; mastered: string[] };
   onUpdateProgress: (levelId: string, signLabel: string, type: 'completed' | 'mastered') => void;
   onStartPractice: () => void;
+  onStartTest: () => void;
+  onStartReview: () => void;
 }
 
-export default function LessonView({ level, progress, onUpdateProgress, onStartPractice }: LessonViewProps) {
+export default function LessonView({ level, progress, onUpdateProgress, onStartPractice, onStartTest, onStartReview }: LessonViewProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentSign = level.signs[currentIndex];
 
@@ -30,6 +32,7 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
   };
 
   const isMastered = progress.mastered.includes(currentSign.label);
+  const isCompleted = progress.completed.includes(currentSign.label);
 
   return (
     <div className="space-y-6">
@@ -77,6 +80,19 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
               </div>
             ))}
           </div>
+          {currentSign.hints && currentSign.hints.length > 0 && (
+            <>
+              <h3 className="text-lg font-semibold mb-4 mt-6 text-yellow-400">Tips:</h3>
+              <div className="space-y-3">
+                {currentSign.hints.map((hint, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="text-yellow-500 text-xl">💡</span>
+                    <span className="text-yellow-200/80">{hint}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-4">
@@ -89,6 +105,14 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
           </button>
 
           <div className="flex gap-3">
+            {!isCompleted && (
+              <button
+                onClick={() => onUpdateProgress(level.id, currentSign.label, 'completed')}
+                className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
+              >
+                Mark as Studied
+              </button>
+            )}
             {!isMastered && (
               <button
                 onClick={handleMarkMastered}
@@ -113,6 +137,23 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
               </button>
             )}
           </div>
+
+          {currentIndex === level.signs.length - 1 && (
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={onStartTest}
+                className="px-6 py-3 bg-purple-600 rounded-lg hover:bg-purple-500 transition-colors"
+              >
+                Take Test
+              </button>
+              <button
+                onClick={onStartReview}
+                className="px-6 py-3 bg-orange-600 rounded-lg hover:bg-orange-500 transition-colors"
+              >
+                Review Mistakes
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

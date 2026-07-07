@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import CourseCard from './components/CourseCard';
 import LessonView from './components/LessonView';
 import PracticeView from './components/PracticeView';
+import TestMode from './components/TestMode';
+import ReviewMode from './components/ReviewMode';
+import StatsView from './components/StatsView';
 import { curriculum } from './data/curriculum';
 import type { Level } from './data/curriculum';
 
-type View = 'courses' | 'lesson' | 'practice';
+type View = 'courses' | 'lesson' | 'practice' | 'test' | 'review' | 'stats';
 
 interface Progress {
   [levelId: string]: {
@@ -65,6 +68,14 @@ export default function App() {
     setView('practice');
   };
 
+  const handleStartTest = () => {
+    setView('test');
+  };
+
+  const handleStartReview = () => {
+    setView('review');
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="border-b border-gray-800 px-6 py-4">
@@ -79,16 +90,27 @@ export default function App() {
               {view === 'courses' && 'Learn American Sign Language step by step'}
               {view === 'lesson' && 'Watch and learn each sign'}
               {view === 'practice' && 'Practice with real-time feedback'}
+              {view === 'test' && 'Test your knowledge'}
+              {view === 'review' && 'Review your mistakes'}
+              {view === 'stats' && 'Track your progress'}
             </p>
           </div>
-          {view !== 'courses' && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleBack}
-              className="px-4 py-2 bg-gray-800 rounded-lg text-sm hover:bg-gray-700 transition-colors"
+              onClick={() => setView('stats')}
+              className="px-4 py-2 bg-cyan-600 rounded-lg text-sm hover:bg-cyan-500 transition-colors"
             >
-              ← Back to Courses
+              📊 Stats
             </button>
-          )}
+            {view !== 'courses' && view !== 'stats' && (
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 bg-gray-800 rounded-lg text-sm hover:bg-gray-700 transition-colors"
+              >
+                ← Back to Courses
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -112,15 +134,36 @@ export default function App() {
             progress={progress[currentLevel.id] || { completed: [], mastered: [] }}
             onUpdateProgress={updateProgress}
             onStartPractice={handleStartPractice}
+            onStartTest={handleStartTest}
+            onStartReview={handleStartReview}
           />
         )}
 
         {view === 'practice' && currentLevel && (
           <PracticeView
             level={currentLevel}
-            progress={progress[currentLevel.id] || { completed: [], mastered: [] }}
             onUpdateProgress={updateProgress}
+            onStartTest={handleStartTest}
+            onStartReview={handleStartReview}
           />
+        )}
+
+        {view === 'test' && currentLevel && (
+          <TestMode
+            level={currentLevel}
+            onBack={handleBack}
+          />
+        )}
+
+        {view === 'review' && currentLevel && (
+          <ReviewMode
+            level={currentLevel}
+            onBack={handleBack}
+          />
+        )}
+
+        {view === 'stats' && (
+          <StatsView />
         )}
       </main>
     </div>
