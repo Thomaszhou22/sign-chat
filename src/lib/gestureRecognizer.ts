@@ -222,8 +222,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_TIP],
       lm[Landmarks.INDEX_TIP]
     );
-    if (thumbTipToIndexTip > 0.08) {
-      return { label: 'C', category: 'letter', confidence: 0.8 };
+    if (thumbTipToIndexTip > 0.05) {
+      return { label: 'C', category: 'letter', confidence: 0.75 };
     }
   }
 
@@ -238,8 +238,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (thumbTipToMiddleTip < 0.05) {
-      return { label: 'D', category: 'letter', confidence: 0.8 };
+    if (thumbTipToMiddleTip < 0.08) {
+      return { label: 'D', category: 'letter', confidence: 0.75 };
     }
   }
 
@@ -260,8 +260,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_TIP],
       lm[Landmarks.INDEX_TIP]
     );
-    if (thumbIndexDist < 0.04) {
-      return { label: 'F', category: 'letter', confidence: 0.85 };
+    if (thumbIndexDist < 0.06) {
+      return { label: 'F', category: 'letter', confidence: 0.8 };
     }
   }
 
@@ -319,8 +319,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist > 0.06) {
-      return { label: 'K', category: 'letter', confidence: 0.7 };
+    if (indexMiddleDist > 0.04) {
+      return { label: 'K', category: 'letter', confidence: 0.75 };
     }
   }
 
@@ -337,8 +337,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_MCP],
       lm[Landmarks.THUMB_TIP]
     );
-    if (thumbAngle > 120) {
-      return { label: 'L', category: 'letter', confidence: 0.85, emoji: '🤟' };
+    if (thumbAngle > 90) {
+      return { label: 'L', category: 'letter', confidence: 0.8, emoji: '🤟' };
     }
   }
 
@@ -361,10 +361,10 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
     !pinky.extended
   ) {
     const allTipsClose =
-      dist(lm[Landmarks.INDEX_TIP], lm[Landmarks.THUMB_TIP]) < 0.06 &&
-      dist(lm[Landmarks.MIDDLE_TIP], lm[Landmarks.THUMB_TIP]) < 0.08;
+      dist(lm[Landmarks.INDEX_TIP], lm[Landmarks.THUMB_TIP]) < 0.08 &&
+      dist(lm[Landmarks.MIDDLE_TIP], lm[Landmarks.THUMB_TIP]) < 0.1;
     if (allTipsClose && thumb.extended) {
-      return { label: 'O', category: 'letter', confidence: 0.7 };
+      return { label: 'O', category: 'letter', confidence: 0.75 };
     }
   }
 
@@ -377,8 +377,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist < 0.02) {
-      return { label: 'R', category: 'letter', confidence: 0.65 };
+    if (indexMiddleDist < 0.04) {
+      return { label: 'R', category: 'letter', confidence: 0.7 };
     }
   }
 
@@ -408,8 +408,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist < 0.03) {
-      return { label: 'U', category: 'letter', confidence: 0.75 };
+    if (indexMiddleDist < 0.05) {
+      return { label: 'U', category: 'letter', confidence: 0.7 };
     }
   }
 
@@ -424,8 +424,8 @@ function classifyASLLetter(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist > 0.04) {
-      return { label: 'V', category: 'letter', confidence: 0.85, emoji: '✌️' };
+    if (indexMiddleDist > 0.03) {
+      return { label: 'V', category: 'letter', confidence: 0.8, emoji: '✌️' };
     }
   }
 
@@ -477,8 +477,8 @@ function classifyNumber(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_TIP],
       lm[Landmarks.INDEX_TIP]
     );
-    if (thumbIndexDist < 0.05 && thumb.extended) {
-      return { label: '0', category: 'number', confidence: 0.75 };
+    if (thumbIndexDist < 0.08 && thumb.extended) {
+      return { label: '0', category: 'number', confidence: 0.7 };
     }
   }
 
@@ -505,8 +505,8 @@ function classifyNumber(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist > 0.04) {
-      return { label: '2', category: 'number', confidence: 0.85, emoji: '✌️' };
+    if (indexMiddleDist > 0.03) {
+      return { label: '2', category: 'number', confidence: 0.8, emoji: '✌️' };
     }
   }
 
@@ -617,8 +617,8 @@ function classifyPhrase(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.THUMB_TIP],
       lm[Landmarks.INDEX_TIP]
     );
-    if (thumbIndexDist < 0.04) {
-      return { label: 'OK', category: 'phrase', confidence: 0.9, emoji: '👌' };
+    if (thumbIndexDist < 0.06) {
+      return { label: 'OK', category: 'phrase', confidence: 0.85, emoji: '👌' };
     }
   }
 
@@ -675,11 +675,11 @@ function classifyPhrase(hand: HandAnalysis): GestureResult | null {
       lm[Landmarks.INDEX_TIP],
       lm[Landmarks.MIDDLE_TIP]
     );
-    if (indexMiddleDist > 0.04) {
+    if (indexMiddleDist > 0.03) {
       return {
         label: 'Peace',
         category: 'phrase',
-        confidence: 0.85,
+        confidence: 0.8,
         emoji: '✌️',
       };
     }
@@ -760,15 +760,15 @@ function classifyPhrase(hand: HandAnalysis): GestureResult | null {
 export function classifyGesture(hand: HandAnalysis): GestureResult | null {
   // Try phrases first (higher priority, more distinctive)
   const phrase = classifyPhrase(hand);
-  if (phrase && phrase.confidence >= 0.8) return phrase;
+  if (phrase && phrase.confidence >= 0.7) return phrase;
 
   // Try numbers
   const number = classifyNumber(hand);
-  if (number && number.confidence >= 0.8) return number;
+  if (number && number.confidence >= 0.7) return number;
 
   // Try letters
   const letter = classifyASLLetter(hand);
-  if (letter && letter.confidence >= 0.75) return letter;
+  if (letter && letter.confidence >= 0.65) return letter;
 
   // Return lower confidence results
   if (phrase) return phrase;
