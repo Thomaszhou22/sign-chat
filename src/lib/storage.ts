@@ -1,15 +1,226 @@
 // Centralized localStorage management for sign-chat app
-// All storage keys in one place, with utilities for clearing/exporting/importing
+// ALL localStorage access goes through this module — components never touch localStorage directly
 
 export const STORAGE_KEYS = {
   PROGRESS: 'signchat-progress',
   DAILY_STATS: 'daily-stats',
   TEST_RECORDS: 'test-records',
   KNN_TRAINING: 'signchat-knn-training',
-  MISTAKES_PREFIX: 'mistakes-', // + levelId
+  MISTAKES_PREFIX: 'mistakes-',
 } as const;
 
-// Get all storage keys including per-level mistake keys
+// ===== Progress =====
+
+export interface LevelProgress {
+  completed: string[];
+  mastered: string[];
+}
+
+export type ProgressData = Record<string, LevelProgress>;
+
+export function loadProgress(): ProgressData {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveProgress(data: ProgressData): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save progress:', e);
+  }
+}
+
+export function markCompleted(levelId: string, signLabel: string, type: 'completed' | 'mastered'): ProgressData {
+  const data = loadProgress();
+  const lp = data[levelId] || { completed: [], mastered: [] };
+  if (type === 'completed' && !lp.completed.includes(signLabel)) {
+    lp.completed.push(signLabel);
+  } else if (type === 'mastered' && !lp.mastered.includes(signLabel)) {
+    lp.mastered.push(signLabel);
+  }
+  data[levelId] = lp;
+  saveProgress(data);
+  return data;
+}
+
+export function toggleCompleted(levelId: string, signLabel: string): ProgressData {
+  const data = loadProgress();
+  const lp = data[levelId] || { completed: [], mastered: [] };
+  if (lp.completed.includes(signLabel)) {
+    lp.completed = lp.completed.filter(l => l !== signLabel);
+  } else {
+    lp.completed.push(signLabel);
+  }
+  data[levelId] = lp;
+  saveProgress(data);
+  return data;
+}
+
+// ===== Mistakes =====
+
+export interface Mistake {
+  sign: string;
+  count: number;
+  lastAttempt: number;
+}
+
+export function loadMistakes(levelId: string): Mistake[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.MISTAKES_PREFIX + levelId);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveMistakes(levelId: string, mistakes: Mistake[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.MISTAKES_PREFIX + levelId, JSON.stringify(mistakes));
+  } catch (e) {
+    console.error('Failed to save mistakes:', e);
+  }
+}
+
+export function recordMistake(levelId: string, signLabel: string): Mistake[] {
+  const mistakes = loadMistakes(levelId);
+  const existing = mistakes.find(m => m.sign === signLabel);
+  if (existing) {
+    existing.count++;
+    existing.lastAttempt = Date.now();
+  } else {
+    mistakes.push({ sign: signLabel, count: 1, lastAttempt: Date.now() });
+  }
+  saveMistakes(levelId, mistakes);
+  return mistakes;
+}
+
+export function clearMistakes(levelId: string): void {
+  localStorage.removeItem(STORAGE_KEYS.MISTAKES_PREFIX + levelId);
+}
+
+// ===== Daily Stats =====
+
+export interface DailyStats {
+  date: string;
+  practiceMinutes: number;
+  signsPracticed: number;
+  correctAnswers: number;
+}
+
+export function loadDailyStats(): DailyStats[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.DAILY_STATS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveDailyStats(stats: DailyStats[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DAILY_STATS, JSON.stringify(stats));
+  } catch (e) {
+    console.error('Failed to save daily stats:', e);
+  }
+}
+
+// ===== Test Records =====
+
+export interface TestRecord {
+  levelId: string;
+  date: string;
+  totalSigns: number;
+  correct: number;
+  accuracy: number;
+  wpm: number;
+}
+
+export function loadTestRecords(): TestRecord[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.TEST_RECORDS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveTestRecords(records: TestRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.TEST_RECORDS, JSON.stringify(records));
+  } catch (e) {
+    console.error('Failed to save test records:', e);
+  }
+}
+
+export function addTestRecord(record: TestRecord): TestRecord[] {
+  const records = loadTestRecords();
+  records.push(record);
+  saveTestRecords(records);
+  return records;
+}
+
+// ===== k-NN Training Data =====
+
+export interface TrainingSample {
+  label: string;
+  landmarks: number[];
+  timestamp: number;
+}
+
+export function loadTrainingData(): Record<string, TrainingSample[]> {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.KNN_TRAINING);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveTrainingData(data: Record<string, TrainingSample[]>): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.KNN_TRAINING, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save training data:', e);
+  }
+}
+
+export function addTrainingSample(label: string, normalizedLandmarks: number[]): void {
+  const data = loadTrainingData();
+  if (!data[label]) data[label] = [];
+  data[label].push({
+    label,
+    landmarks: normalizedLandmarks,
+    timestamp: Date.now(),
+  });
+  saveTrainingData(data);
+}
+
+export function clearTrainingData(label?: string): void {
+  if (label) {
+    const data = loadTrainingData();
+    delete data[label];
+    saveTrainingData(data);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.KNN_TRAINING);
+  }
+}
+
+export function getTrainingStats(): Record<string, number> {
+  const data = loadTrainingData();
+  const stats: Record<string, number> = {};
+  for (const [label, samples] of Object.entries(data)) {
+    stats[label] = samples.length;
+  }
+  return stats;
+}
+
+// ===== Bulk Operations =====
+
 export function getAllStorageKeys(): string[] {
   const keys: string[] = [
     STORAGE_KEYS.PROGRESS,
@@ -17,19 +228,15 @@ export function getAllStorageKeys(): string[] {
     STORAGE_KEYS.TEST_RECORDS,
     STORAGE_KEYS.KNN_TRAINING,
   ];
-
-  // Find all mistake keys
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith(STORAGE_KEYS.MISTAKES_PREFIX)) {
       keys.push(key);
     }
   }
-
   return keys;
 }
 
-// Get storage usage info for each key
 export function getStorageInfo(): { key: string; label: string; size: number; items: number }[] {
   const keyInfo: { key: string; label: string; size: number; items: number }[] = [
     { key: STORAGE_KEYS.PROGRESS, label: 'Learning Progress', size: 0, items: 0 },
@@ -62,7 +269,6 @@ export function getStorageInfo(): { key: string; label: string; size: number; it
     }
   }
 
-  // Add mistake keys
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith(STORAGE_KEYS.MISTAKES_PREFIX)) {
@@ -80,12 +286,10 @@ export function getStorageInfo(): { key: string; label: string; size: number; it
   return keyInfo.filter(info => info.size > 0);
 }
 
-// Clear a specific storage key
 export function clearStorageKey(key: string): void {
   localStorage.removeItem(key);
 }
 
-// Clear all app data
 export function clearAllAppData(): void {
   const keys = getAllStorageKeys();
   for (const key of keys) {
@@ -93,17 +297,6 @@ export function clearAllAppData(): void {
   }
 }
 
-// Clear all mistakes data
-export function clearAllMistakes(): void {
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith(STORAGE_KEYS.MISTAKES_PREFIX)) {
-      localStorage.removeItem(key);
-    }
-  }
-}
-
-// Export all data as JSON
 export function exportAllData(): string {
   const data: Record<string, any> = {};
   const keys = getAllStorageKeys();
@@ -120,7 +313,6 @@ export function exportAllData(): string {
   return JSON.stringify(data, null, 2);
 }
 
-// Import data from JSON
 export function importAllData(jsonStr: string): boolean {
   try {
     const data = JSON.parse(jsonStr);
@@ -133,7 +325,6 @@ export function importAllData(jsonStr: string): boolean {
   }
 }
 
-// Format bytes to human readable
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

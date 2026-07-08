@@ -8,63 +8,28 @@ import StatsView from './components/StatsView';
 import DataCollector from './components/DataCollector';
 import { curriculum } from './data/curriculum';
 import type { Level } from './data/curriculum';
+import { loadProgress, markCompleted, toggleCompleted as storageToggleCompleted } from './lib/storage';
+import type { ProgressData } from './lib/storage';
 
 type View = 'courses' | 'lesson' | 'practice' | 'test' | 'review' | 'stats' | 'collect';
-
-interface Progress {
-  [levelId: string]: {
-    completed: string[];
-    mastered: string[];
-  };
-}
 
 export default function App() {
   const [view, setView] = useState<View>('courses');
   const [currentLevel, setCurrentLevel] = useState<Level | null>(null);
-  const [progress, setProgress] = useState<Progress>({});
+  const [progress, setProgress] = useState<ProgressData>({});
 
-  // Load progress from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('signchat-progress');
-    if (saved) {
-      setProgress(JSON.parse(saved));
-    }
+    setProgress(loadProgress());
   }, []);
 
-  // Save progress to localStorage
   const updateProgress = (levelId: string, signLabel: string, type: 'completed' | 'mastered') => {
-    setProgress((prev) => {
-      const levelProgress = prev[levelId] || { completed: [], mastered: [] };
-      const newProgress = { ...prev };
-
-      if (type === 'completed' && !levelProgress.completed.includes(signLabel)) {
-        levelProgress.completed.push(signLabel);
-      } else if (type === 'mastered' && !levelProgress.mastered.includes(signLabel)) {
-        levelProgress.mastered.push(signLabel);
-      }
-
-      newProgress[levelId] = levelProgress;
-      localStorage.setItem('signchat-progress', JSON.stringify(newProgress));
-      return newProgress;
-    });
+    const newProgress = markCompleted(levelId, signLabel, type);
+    setProgress(newProgress);
   };
 
-  // Toggle completed status
   const toggleCompleted = (levelId: string, signLabel: string) => {
-    setProgress((prev) => {
-      const levelProgress = prev[levelId] || { completed: [], mastered: [] };
-      const newProgress = { ...prev };
-
-      if (levelProgress.completed.includes(signLabel)) {
-        levelProgress.completed = levelProgress.completed.filter(label => label !== signLabel);
-      } else {
-        levelProgress.completed.push(signLabel);
-      }
-
-      newProgress[levelId] = levelProgress;
-      localStorage.setItem('signchat-progress', JSON.stringify(newProgress));
-      return newProgress;
-    });
+    const newProgress = storageToggleCompleted(levelId, signLabel);
+    setProgress(newProgress);
   };
 
   const getProgressPercent = (level: Level) => {
@@ -83,21 +48,10 @@ export default function App() {
     setCurrentLevel(null);
   };
 
-  const handleStartPractice = () => {
-    setView('practice');
-  };
-
-  const handleStartTest = () => {
-    setView('test');
-  };
-
-  const handleStartReview = () => {
-    setView('review');
-  };
-
-  const handleStartCollect = () => {
-    setView('collect');
-  };
+  const handleStartPractice = () => setView('practice');
+  const handleStartTest = () => setView('test');
+  const handleStartReview = () => setView('review');
+  const handleStartCollect = () => setView('collect');
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -116,6 +70,7 @@ export default function App() {
               {view === 'test' && 'Test your knowledge'}
               {view === 'review' && 'Review your mistakes'}
               {view === 'stats' && 'Track your progress'}
+              {view === 'collect' && 'Train your personalized model'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -174,28 +129,17 @@ export default function App() {
         )}
 
         {view === 'test' && currentLevel && (
-          <TestMode
-            level={currentLevel}
-            onBack={handleBack}
-          />
+          <TestMode level={currentLevel} onBack={handleBack} />
         )}
 
         {view === 'review' && currentLevel && (
-          <ReviewMode
-            level={currentLevel}
-            onBack={handleBack}
-          />
+          <ReviewMode level={currentLevel} onBack={handleBack} />
         )}
 
-        {view === 'stats' && (
-          <StatsView />
-        )}
+        {view === 'stats' && <StatsView />}
 
         {view === 'collect' && currentLevel && (
-          <DataCollector
-            level={currentLevel}
-            onBack={handleBack}
-          />
+          <DataCollector level={currentLevel} onBack={handleBack} />
         )}
       </main>
     </div>

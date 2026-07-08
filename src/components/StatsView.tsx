@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { curriculum } from '../data/curriculum';
+import { loadDailyStats, loadTestRecords, loadProgress } from '../lib/storage';
 import { getStorageInfo, clearStorageKey, clearAllAppData, exportAllData, formatBytes } from '../lib/storage';
 
 interface DailyStats {
@@ -26,20 +27,16 @@ export default function StatsView() {
   const [showStoragePanel, setShowStoragePanel] = useState(false);
 
   useEffect(() => {
-    const savedDaily = localStorage.getItem('daily-stats');
-    if (savedDaily) setDailyStats(JSON.parse(savedDaily));
-
-    const savedTests = localStorage.getItem('test-records');
-    if (savedTests) setTestRecords(JSON.parse(savedTests));
+    setDailyStats(loadDailyStats());
+    setTestRecords(loadTestRecords());
 
     let totalSigns = 0;
     let masteredSigns = 0;
-    
+    const progress = loadProgress();
     curriculum.forEach(level => {
-      const progress = JSON.parse(localStorage.getItem('signchat-progress') || '{}');
-      const levelProgress = progress[level.id] || { completed: [], mastered: [] };
+      const lp = progress[level.id] || { completed: [], mastered: [] };
       totalSigns += level.signs.length;
-      masteredSigns += levelProgress.mastered.length;
+      masteredSigns += lp.mastered.length;
     });
 
     setOverallProgress(totalSigns > 0 ? Math.round((masteredSigns / totalSigns) * 100) : 0);

@@ -3,6 +3,8 @@ import type { Level } from '../data/curriculum';
 import HandTracker from './HandTracker';
 import SignImage from './SignImage';
 import type { GestureResult } from '../lib/gestureRecognizer';
+import { loadMistakes, saveMistakes } from '../lib/storage';
+import type { Mistake } from '../lib/storage';
 
 interface PracticeViewProps {
   level: Level;
@@ -20,26 +22,23 @@ export default function PracticeView({ level, onUpdateProgress, onStartTest, onS
   const [score, setScore] = useState({ correct: 0, wrong: 0 });
   const [showHint, setShowHint] = useState(true);
 
-  // Load mistakes from localStorage for tracking
-  const [, setMistakes] = useState<{ sign: string; count: number; lastAttempt: number }[]>([]);
+  const [, setMistakes] = useState<Mistake[]>([]);
   
   useEffect(() => {
-    const saved = localStorage.getItem(`mistakes-${level.id}`);
-    if (saved) setMistakes(JSON.parse(saved));
+    setMistakes(loadMistakes(level.id));
   }, [level.id]);
 
   const recordMistake = (signLabel: string) => {
-    setMistakes(prev => {
-      const existing = prev.find(m => m.sign === signLabel);
-      let updated;
-      if (existing) {
-        updated = prev.map(m => m.sign === signLabel ? { ...m, count: m.count + 1, lastAttempt: Date.now() } : m);
-      } else {
-        updated = [...prev, { sign: signLabel, count: 1, lastAttempt: Date.now() }];
-      }
-      localStorage.setItem(`mistakes-${level.id}`, JSON.stringify(updated));
-      return updated;
-    });
+    const mistakes = loadMistakes(level.id);
+    const existing = mistakes.find(m => m.sign === signLabel);
+    if (existing) {
+      existing.count++;
+      existing.lastAttempt = Date.now();
+    } else {
+      mistakes.push({ sign: signLabel, count: 1, lastAttempt: Date.now() });
+    }
+    saveMistakes(level.id, mistakes);
+    setMistakes(mistakes);
   };
 
   const playVoice = (text: string) => {

@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
 import type { Level, ASLSign } from '../data/curriculum';
 import SignImage from './SignImage';
+import { loadMistakes, saveMistakes } from '../lib/storage';
+import type { Mistake } from '../lib/storage';
 
 interface ReviewModeProps {
   level: Level;
   onBack: () => void;
-}
-
-interface Mistake {
-  sign: string;
-  count: number;
-  lastAttempt: number;
 }
 
 export default function ReviewMode({ level, onBack }: ReviewModeProps) {
@@ -20,15 +16,9 @@ export default function ReviewMode({ level, onBack }: ReviewModeProps) {
   const [sessionResults, setSessionResults] = useState<{ sign: string; correct: boolean }[]>([]);
 
   useEffect(() => {
-    // Load mistakes from localStorage
-    const saved = localStorage.getItem(`mistakes-${level.id}`);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Filter to only include signs from current level
-      const levelSigns = level.signs.map(s => s.label);
-      const filtered = parsed.filter((m: Mistake) => levelSigns.includes(m.sign));
-      setMistakes(filtered);
-    }
+    const all = loadMistakes(level.id);
+    const levelSigns = level.signs.map(s => s.label);
+    setMistakes(all.filter(m => levelSigns.includes(m.sign)));
   }, [level.id, level.signs]);
 
   const currentSign: ASLSign | null = mistakes.length > 0 && currentIndex < mistakes.length
@@ -43,24 +33,21 @@ export default function ReviewMode({ level, onBack }: ReviewModeProps) {
 
     if (correct) {
       playVoice(currentSign.label);
-      
-      // Remove from mistakes if got it right 3 times in a row
       const signResults = newResults.filter(r => r.sign === currentSign.label);
       const lastThree = signResults.slice(-3);
       if (lastThree.length === 3 && lastThree.every(r => r.correct)) {
         const updated = mistakes.filter(m => m.sign !== currentSign.label);
         setMistakes(updated);
-        localStorage.setItem(`mistakes-${level.id}`, JSON.stringify(updated));
+        saveMistakes(level.id, updated);
       }
     } else {
-      // Increment mistake count
       const updated = mistakes.map(m =>
         m.sign === currentSign.label
           ? { ...m, count: m.count + 1, lastAttempt: Date.now() }
           : m
       );
       setMistakes(updated);
-      localStorage.setItem(`mistakes-${level.id}`, JSON.stringify(updated));
+      saveMistakes(level.id, updated);
     }
 
     setShowAnswer(false);
