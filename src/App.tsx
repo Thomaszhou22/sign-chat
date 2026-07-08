@@ -48,6 +48,24 @@ export default function App() {
     });
   };
 
+  // Toggle completed status
+  const toggleCompleted = (levelId: string, signLabel: string) => {
+    setProgress((prev) => {
+      const levelProgress = prev[levelId] || { completed: [], mastered: [] };
+      const newProgress = { ...prev };
+
+      if (levelProgress.completed.includes(signLabel)) {
+        levelProgress.completed = levelProgress.completed.filter(label => label !== signLabel);
+      } else {
+        levelProgress.completed.push(signLabel);
+      }
+
+      newProgress[levelId] = levelProgress;
+      localStorage.setItem('signchat-progress', JSON.stringify(newProgress));
+      return newProgress;
+    });
+  };
+
   const getProgressPercent = (level: Level) => {
     const levelProgress = progress[level.id];
     if (!levelProgress) return 0;
@@ -133,6 +151,7 @@ export default function App() {
             level={currentLevel}
             progress={progress[currentLevel.id] || { completed: [], mastered: [] }}
             onUpdateProgress={updateProgress}
+            onToggleCompleted={toggleCompleted}
             onStartPractice={handleStartPractice}
             onStartTest={handleStartTest}
             onStartReview={handleStartReview}

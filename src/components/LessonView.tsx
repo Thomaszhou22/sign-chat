@@ -8,12 +8,13 @@ interface LessonViewProps {
   level: Level;
   progress: { completed: string[]; mastered: string[] };
   onUpdateProgress: (levelId: string, signLabel: string, type: 'completed' | 'mastered') => void;
+  onToggleCompleted: (levelId: string, signLabel: string) => void;
   onStartPractice: () => void;
   onStartTest: () => void;
   onStartReview: () => void;
 }
 
-export default function LessonView({ level, progress, onUpdateProgress, onStartPractice, onStartTest, onStartReview }: LessonViewProps) {
+export default function LessonView({ level, progress, onUpdateProgress, onToggleCompleted, onStartPractice, onStartTest, onStartReview }: LessonViewProps) {
   const [selectedSign, setSelectedSign] = useState<ASLSign | null>(null);
   const [detectedGesture, setDetectedGesture] = useState<GestureResult | null>(null);
   const [handDetected, setHandDetected] = useState(false);
@@ -129,6 +130,7 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
 
   // Detail view with practice
   const isMastered = progress.mastered.includes(selectedSign.label);
+  const isCompleted = progress.completed.includes(selectedSign.label);
   const currentIndex = level.signs.findIndex(s => s.label === selectedSign.label);
 
   return (
@@ -190,10 +192,14 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
             
             {!isMastered && (
               <button
-                onClick={() => onUpdateProgress(level.id, selectedSign.label, 'completed')}
-                className="flex-1 px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
+                onClick={() => onToggleCompleted(level.id, selectedSign.label)}
+                className={`flex-1 px-6 py-3 rounded-lg transition-colors ${
+                  isCompleted
+                    ? 'bg-gray-600 hover:bg-gray-500'
+                    : 'bg-blue-600 hover:bg-blue-500'
+                }`}
               >
-                Mark as Studied
+                {isCompleted ? 'Cancel Studied' : 'Mark as Studied'}
               </button>
             )}
 

@@ -35,7 +35,7 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastGestureRef = useRef<string | null>(null);
   const stableCountRef = useRef(0);
-  const STABLE_THRESHOLD = 6;
+  const STABLE_THRESHOLD = 3;
 
   const drawLandmarks = useCallback((results: GestureRecognizerResult) => {
     const canvas = canvasRef.current;
