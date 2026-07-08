@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Level, ASLSign } from '../data/curriculum';
-import SignDiagram from './SignDiagram';
+import SignImage from './SignImage';
 
 interface TestModeProps {
   level: Level;
@@ -168,7 +168,7 @@ export default function TestMode({ level, onBack }: TestModeProps) {
           <div className="text-center mb-8">
             <p className="text-gray-400 mb-4">Show this sign:</p>
             <div className="flex justify-center mb-6">
-              <SignDiagram label={currentSign.label} description={currentSign.description} size="lg" />
+              <SignImage label={currentSign.label} imageUrl={currentSign.imageUrl} size="lg" />
             </div>
             
             {showAnswer ? (
