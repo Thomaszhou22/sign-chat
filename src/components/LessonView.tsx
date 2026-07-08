@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { Level } from '../data/curriculum';
+import SignDiagram from './SignDiagram';
 
 interface LessonViewProps {
   level: Level;
@@ -13,6 +14,14 @@ interface LessonViewProps {
 export default function LessonView({ level, progress, onUpdateProgress, onStartPractice, onStartTest, onStartReview }: LessonViewProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentSign = level.signs[currentIndex];
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to detail when clicking a sign card
+  useEffect(() => {
+    if (detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentIndex]);
 
   const handleNext = () => {
     if (currentIndex < level.signs.length - 1) {
@@ -52,19 +61,25 @@ export default function LessonView({ level, progress, onUpdateProgress, onStartP
                 : 'bg-gray-900 border border-gray-800'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl font-bold">{sign.label}</span>
+            <div className="flex justify-center mb-2">
+              <SignDiagram label={sign.label} description={sign.description} size="sm" />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-bold">{sign.label}</span>
               {progress.mastered.includes(sign.label) && (
                 <span className="text-green-500">✓</span>
               )}
             </div>
-            <p className="text-sm text-gray-400">{sign.description}</p>
           </button>
         ))}
       </div>
 
       {/* Current sign detail */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+      <div ref={detailRef} className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+        {/* Diagram */}
+        <div className="flex justify-center mb-8">
+          <SignDiagram label={currentSign.label} description={currentSign.description} size="lg" />
+        </div>
         <div className="text-center mb-8">
           <div className="text-9xl font-bold mb-4 text-cyan-400">{currentSign.label}</div>
           <p className="text-xl text-gray-300">{currentSign.description}</p>

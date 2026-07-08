@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Level } from '../data/curriculum';
 import HandTracker from './HandTracker';
+import SignDiagram from './SignDiagram';
 import type { GestureResult } from '../lib/gestureRecognizer';
 
 interface PracticeViewProps {
@@ -136,7 +137,9 @@ export default function PracticeView({ level, onUpdateProgress, onStartTest, onS
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
             <div className="text-center mb-6">
               <p className="text-sm text-gray-500 mb-2">Show this sign:</p>
-              <div className="text-8xl font-bold mb-4 text-cyan-400">{currentSign.label}</div>
+              <div className="flex justify-center mb-4">
+                <SignDiagram label={currentSign.label} description={currentSign.description} size="lg" />
+              </div>
               <p className="text-lg text-gray-300">{currentSign.description}</p>
             </div>
 
