@@ -169,15 +169,21 @@ export async function fetchCloudSamples(
   labels: string[]
 ): Promise<TrainingSample[]> {
   if (!supabase) return [];
-
   const sb = supabase!;
-  const { data, error } = await sb
+  
+  let query = sb
     .from('asl_training_samples')
     .select('label, landmarks, created_at')
-    .in('label', labels)
     .eq('is_flagged', false)
-    .order('created_at', { ascending: false })
-    .limit(500); // cap to prevent huge downloads
+    .order('created_at', { ascending: false });
+  
+  if (labels.length > 0) {
+    query = query.in('label', labels);
+  }
+  
+  query = query.limit(500);
+
+  const { data, error } = await query;
 
   if (error || !data) return [];
 

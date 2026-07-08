@@ -18,7 +18,8 @@ const CACHE_TTL = 5 * 60 * 1000;
 export { storageAddSample as addTrainingSample, storageClearTraining as clearTrainingData, storageGetStats as getTrainingStats };
 export type { TrainingSample };
 
-function normalizeLandmarks(landmarks: HandLandmark[]): number[] {
+// Normalize landmarks: center on wrist, scale by hand size
+export function normalizeLandmarks(landmarks: HandLandmark[]): number[] {
   if (!landmarks || landmarks.length < 21) return [];
   const wrist = landmarks[0];
   let maxDist = 0;

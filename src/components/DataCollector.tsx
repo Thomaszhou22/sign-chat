@@ -3,7 +3,7 @@ import type { Level } from '../data/curriculum';
 import HandTracker from './HandTracker';
 import SignImage from './SignImage';
 import type { GestureResult } from '../lib/gestureRecognizer';
-import { addTrainingSample, clearTrainingData, getTrainingStats, syncLocalToCloud } from '../lib/knnClassifier';
+import { addTrainingSample, clearTrainingData, getTrainingStats, syncLocalToCloud, normalizeLandmarks } from '../lib/knnClassifier';
 import { uploadSample as _uploadSample, isCloudEnabled, getCloudStats, undoLastUpload } from '../lib/trainingApi';
 
 interface DataCollectorProps {
@@ -43,7 +43,11 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         if (now - lastSampleTimeRef.current < 300) return;
         lastSampleTimeRef.current = now;
 
-        addTrainingSample(currentSign.label, landmarks);
+        // Normalize landmarks before storing
+        const normalized = normalizeLandmarks(landmarks);
+        if (normalized.length !== 63) return;
+
+        addTrainingSample(currentSign.label, normalized);
         const newStats = getTrainingStats();
         setStats(newStats);
         
@@ -307,10 +311,12 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         <h3 className="text-lg font-semibold mb-4">Instructions</h3>
         <ul className="space-y-2 text-sm text-gray-400">
           <li>• Record 15 samples per sign to activate the k-NN model</li>
-          <li>• Samples are saved locally and uploaded to cloud (shared with all users)</li>
-          <li>• Outlier detection prevents bad data: samples too different from existing data are rejected</li>
-          <li>• Cross-label check: if your sample looks like a different sign, it gets flagged</li>
-          <li>• Cloud data from all users improves recognition for everyone</li>
+          <li>• Samples are saved locally first, then upload to cloud via "Sync to Cloud" button</li>
+          <li>• Cloud data is shared with all users, improving recognition for everyone</li>
+          <li>• Duplicate detection: identical data within 10 minutes is rejected</li>
+          <li>• Rate limit: max 30 samples per user per sign</li>
+          <li>• Outlier detection: samples too different or resembling another sign are rejected</li>
+          <li>• Use "Undo Last Upload" to retract your most recent upload</li>
           <li>• Total: local {totalSamples} / cloud {totalCloudSamples} samples</li>
         </ul>
       </div>
