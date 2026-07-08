@@ -134,6 +134,36 @@ export async function uploadSample(
   return { success: true, flagged: false };
 }
 
+// Undo last cloud upload by this user
+export async function undoLastUpload(): Promise<{ success: boolean; reason?: string; deletedLabel?: string }> {
+  if (!supabase) return { success: false, reason: 'Cloud not configured' };
+  const sb = supabase!;
+  const userHash = getUserHash();
+
+  // Find the most recent upload by this user
+  const { data, error } = await sb
+    .from('asl_training_samples')
+    .select('id, label')
+    .eq('user_hash', userHash)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) return { success: false, reason: error.message };
+  if (!data || data.length === 0) return { success: false, reason: 'No uploads to undo' };
+
+  const lastUpload = data[0];
+
+  // Delete it
+  const { error: deleteError } = await sb
+    .from('asl_training_samples')
+    .delete()
+    .eq('id', lastUpload.id);
+
+  if (deleteError) return { success: false, reason: deleteError.message };
+
+  return { success: true, deletedLabel: lastUpload.label };
+}
+
 // Fetch training samples for specific labels from cloud
 export async function fetchCloudSamples(
   labels: string[]

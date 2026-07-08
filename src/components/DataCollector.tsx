@@ -4,7 +4,7 @@ import HandTracker from './HandTracker';
 import SignImage from './SignImage';
 import type { GestureResult } from '../lib/gestureRecognizer';
 import { addTrainingSample, clearTrainingData, getTrainingStats, syncLocalToCloud } from '../lib/knnClassifier';
-import { uploadSample, isCloudEnabled, getCloudStats } from '../lib/trainingApi';
+import { uploadSample, isCloudEnabled, getCloudStats, undoLastUpload } from '../lib/trainingApi';
 
 interface DataCollectorProps {
   level: Level;
@@ -114,6 +114,17 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
 
   const getSampleCount = (label: string) => stats[label] || 0;
 
+  const handleUndoUpload = async () => {
+    setUploadStatus('Undoing last upload...');
+    const result = await undoLastUpload();
+    if (result.success) {
+      setUploadStatus(`✓ Removed last upload (${result.deletedLabel})`);
+      getCloudStats().then(setCloudStats);
+    } else {
+      setUploadStatus(`✗ ${result.reason}`);
+    }
+  };
+
   const totalSamples = Object.values(stats).reduce((a, b) => a + b, 0);
   const totalCloudSamples = Object.values(cloudStats).reduce((a, b) => a + b, 0);
   const hasData = totalSamples > 0 || totalCloudSamples > 0;
@@ -153,17 +164,25 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
             </span>
           )}
           {isCloudEnabled() && (
-            <button
-              onClick={async () => {
-                setUploadStatus('Syncing to cloud...');
-                const result = await syncLocalToCloud();
-                setUploadStatus(`Synced: ${result.uploaded} uploaded, ${result.flagged} flagged, ${result.failed} failed`);
-                getCloudStats().then(setCloudStats);
-              }}
-              className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors text-sm"
-            >
-              Sync to Cloud
-            </button>
+            <>
+              <button
+                onClick={async () => {
+                  setUploadStatus('Syncing to cloud...');
+                  const result = await syncLocalToCloud();
+                  setUploadStatus(`Synced: ${result.uploaded} uploaded, ${result.flagged} flagged, ${result.failed} failed`);
+                  getCloudStats().then(setCloudStats);
+                }}
+                className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors text-sm"
+              >
+                Sync to Cloud
+              </button>
+              <button
+                onClick={handleUndoUpload}
+                className="px-4 py-2 bg-yellow-600 rounded-lg hover:bg-yellow-500 transition-colors text-sm"
+              >
+                Undo Last Upload
+              </button>
+            </>
           )}
           <button
             onClick={handleClearAll}
