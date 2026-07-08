@@ -4,7 +4,7 @@ import HandTracker from './HandTracker';
 import SignImage from './SignImage';
 import type { GestureResult } from '../lib/gestureRecognizer';
 import { addTrainingSample, clearTrainingData, getTrainingStats, syncLocalToCloud } from '../lib/knnClassifier';
-import { uploadSample, isCloudEnabled, getCloudStats, undoLastUpload } from '../lib/trainingApi';
+import { uploadSample as _uploadSample, isCloudEnabled, getCloudStats, undoLastUpload } from '../lib/trainingApi';
 
 interface DataCollectorProps {
   level: Level;
@@ -116,24 +116,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
   const totalCloudSamples = Object.values(cloudStats).reduce((a, b) => a + b, 0);
   const hasData = totalSamples > 0 || totalCloudSamples > 0;
 
-  // Simple local normalize for cloud upload
-  function normalizeLocally(landmarks: any[]): number[] {
-    if (!landmarks || landmarks.length < 21) return [];
-    const wrist = landmarks[0];
-    let maxDist = 0;
-    for (const lm of landmarks) {
-      const d = Math.sqrt((lm.x - wrist.x) ** 2 + (lm.y - wrist.y) ** 2 + (lm.z - wrist.z) ** 2);
-      if (d > maxDist) maxDist = d;
-    }
-    if (maxDist < 0.001) maxDist = 0.001;
-    const out: number[] = [];
-    for (const lm of landmarks) {
-      out.push((lm.x - wrist.x) / maxDist);
-      out.push((lm.y - wrist.y) / maxDist);
-      out.push((lm.z - wrist.z) / maxDist);
-    }
-    return out;
-  }
+  // (removed normalizeLocally — upload is handled by syncLocalToCloud)
 
   return (
     <div className="space-y-6">
