@@ -99,44 +99,63 @@ export default function HandTracker({ onGesture, onHandDetected, levelId }: Hand
           stableCountRef.current = 0;
           onGesture(null);
         } else {
-          onHandDetected(true);
           const landmarks = results.landmarks[0];
-          const handedness = results.handednesses[0]?.[0]?.categoryName === 'Left' ? 'right' : 'left';
-          
-          // Send landmarks to any listening DataCollector
-          window.dispatchEvent(new CustomEvent('landmarks-data', { 
-            detail: { landmarks: landmarks.map((lm: any) => ({ x: lm.x, y: lm.y, z: lm.z })) } 
-          }));
-          
-          // Use hybrid classifier: k-NN first (if training data exists), then rule-based fallback
-          const hybridResult = classifyHybrid(landmarks, handedness, levelId);
-          const builtIn = results.gestures[0]?.[0];
 
-          let result: GestureResult | null = null;
-          if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7) {
-            result = { label: builtIn.categoryName, category: 'phrase', confidence: builtIn.score };
-          } else if (hybridResult) {
-            result = { 
-              label: hybridResult.label, 
-              category: hybridResult.source === 'knn' ? 'letter' : 'letter', 
-              confidence: hybridResult.confidence 
-            };
-          }
+          // Reject hands that are too small (far away / someone else's hand in background)
+          // Palm size = distance from wrist (0) to middle finger MCP (9) in normalized coords
+          const wrist = landmarks[0];
+          const middleMCP = landmarks[9];
+          const palmSize = Math.sqrt(
+            (wrist.x - middleMCP.x) ** 2 +
+            (wrist.y - middleMCP.y) ** 2
+          );
+          const MIN_PALM_SIZE = 0.10; // ~10% of frame width = close enough
 
-          if (result) {
-            if (result.label === lastGestureRef.current) {
-              stableCountRef.current++;
-              if (stableCountRef.current >= STABLE_THRESHOLD) {
-                onGesture(result);
-              }
-            } else {
-              lastGestureRef.current = result.label;
-              stableCountRef.current = 1;
-            }
-          } else {
+          if (palmSize < MIN_PALM_SIZE) {
+            // Hand too far away, ignore
+            onHandDetected(false);
             lastGestureRef.current = null;
             stableCountRef.current = 0;
             onGesture(null);
+          } else {
+            onHandDetected(true);
+            const handedness = results.handednesses[0]?.[0]?.categoryName === 'Left' ? 'right' : 'left';
+            
+            // Send landmarks to any listening DataCollector
+            window.dispatchEvent(new CustomEvent('landmarks-data', { 
+              detail: { landmarks: landmarks.map((lm: any) => ({ x: lm.x, y: lm.y, z: lm.z })) } 
+            }));
+            
+            // Use hybrid classifier: k-NN first (if training data exists), then rule-based fallback
+            const hybridResult = classifyHybrid(landmarks, handedness, levelId);
+            const builtIn = results.gestures[0]?.[0];
+
+            let result: GestureResult | null = null;
+            if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7) {
+              result = { label: builtIn.categoryName, category: 'phrase', confidence: builtIn.score };
+            } else if (hybridResult) {
+              result = { 
+                label: hybridResult.label, 
+                category: hybridResult.source === 'knn' ? 'letter' : 'letter', 
+                confidence: hybridResult.confidence 
+              };
+            }
+
+            if (result) {
+              if (result.label === lastGestureRef.current) {
+                stableCountRef.current++;
+                if (stableCountRef.current >= STABLE_THRESHOLD) {
+                  onGesture(result);
+                }
+              } else {
+                lastGestureRef.current = result.label;
+                stableCountRef.current = 1;
+              }
+            } else {
+              lastGestureRef.current = null;
+              stableCountRef.current = 0;
+              onGesture(null);
+            }
           }
         }
       }
