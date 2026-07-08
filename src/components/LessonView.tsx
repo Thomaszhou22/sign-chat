@@ -224,6 +224,7 @@ export default function LessonView({ level, progress, onUpdateProgress, onToggle
               <HandTracker
                 onGesture={handleGestureDetected}
                 onHandDetected={setHandDetected}
+                levelId={level.id}
               />
             </div>
 

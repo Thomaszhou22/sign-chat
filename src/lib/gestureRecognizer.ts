@@ -75,7 +75,7 @@ function isFingerExtended(
   // Finger is extended if tip is further from wrist than PIP
   const tipDist = dist(tip, wrist);
   const pipDist = dist(pip, wrist);
-  return tipDist > pipDist * 1.1;
+  return tipDist > pipDist * 1.05;
 }
 
 // Helper: check if thumb is extended
@@ -87,7 +87,7 @@ function isThumbExtended(
   // Thumb extended if tip is far from palm center
   const tipToWrist = dist(tip, wrist);
   const ipToWrist = dist(ip, wrist);
-  return tipToWrist > ipToWrist * 1.05;
+  return tipToWrist > ipToWrist * 1.02;
 }
 
 // Analyze hand landmarks into structured state
@@ -756,24 +756,34 @@ function classifyPhrase(hand: HandAnalysis): GestureResult | null {
   return null;
 }
 
-// Main classification function
-export function classifyGesture(hand: HandAnalysis): GestureResult | null {
-  // Try phrases first (higher priority, more distinctive)
-  const phrase = classifyPhrase(hand);
-  if (phrase && phrase.confidence >= 0.7) return phrase;
+// Context-aware classification: only return results matching the current level
+export function classifyGesture(hand: HandAnalysis, levelId?: string): GestureResult | null {
+  // Determine which categories are allowed based on level
+  const allowLetters = !levelId || levelId === 'alphabet' || levelId === 'phrases';
+  const allowNumbers = !levelId || levelId === 'numbers' || levelId === 'phrases';
+  const allowPhrases = !levelId || levelId === 'common-words' || levelId === 'phrases';
 
-  // Try numbers
-  const number = classifyNumber(hand);
-  if (number && number.confidence >= 0.7) return number;
+  // Collect all matching results
+  const candidates: GestureResult[] = [];
 
-  // Try letters
-  const letter = classifyASLLetter(hand);
-  if (letter && letter.confidence >= 0.65) return letter;
+  if (allowPhrases) {
+    const phrase = classifyPhrase(hand);
+    if (phrase) candidates.push(phrase);
+  }
 
-  // Return lower confidence results
-  if (phrase) return phrase;
-  if (number) return number;
-  if (letter) return letter;
+  if (allowNumbers) {
+    const number = classifyNumber(hand);
+    if (number) candidates.push(number);
+  }
 
-  return null;
+  if (allowLetters) {
+    const letter = classifyASLLetter(hand);
+    if (letter) candidates.push(letter);
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Sort by confidence descending and return the best match
+  candidates.sort((a, b) => b.confidence - a.confidence);
+  return candidates[0];
 }

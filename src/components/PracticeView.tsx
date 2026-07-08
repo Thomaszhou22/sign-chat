@@ -104,6 +104,7 @@ export default function PracticeView({ level, onUpdateProgress, onStartTest, onS
             <HandTracker
               onGesture={handleGestureDetected}
               onHandDetected={setHandDetected}
+              levelId={level.id}
             />
           </div>
           <div className="flex items-center gap-2 mb-4">

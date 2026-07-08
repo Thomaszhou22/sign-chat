@@ -7,6 +7,7 @@ import type { GestureResult } from '../lib/gestureRecognizer';
 interface HandTrackerProps {
   onGesture: (result: GestureResult | null) => void;
   onHandDetected: (detected: boolean) => void;
+  levelId?: string;
 }
 
 let gestureRecognizer: GestureRecognizer | null = null;
@@ -30,12 +31,12 @@ async function initGestureRecognizer(): Promise<GestureRecognizer> {
   });
 }
 
-export default function HandTracker({ onGesture, onHandDetected }: HandTrackerProps) {
+export default function HandTracker({ onGesture, onHandDetected, levelId }: HandTrackerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastGestureRef = useRef<string | null>(null);
   const stableCountRef = useRef(0);
-  const STABLE_THRESHOLD = 3;
+  const STABLE_THRESHOLD = 2;
 
   const drawLandmarks = useCallback((results: GestureRecognizerResult) => {
     const canvas = canvasRef.current;
@@ -102,7 +103,7 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
           const landmarks = results.landmarks[0];
           const handedness = results.handednesses[0]?.[0]?.categoryName === 'Left' ? 'right' : 'left';
           const hand = analyzeHand(landmarks, handedness);
-          const customResult = classifyGesture(hand);
+          const customResult = classifyGesture(hand, levelId);
           const builtIn = results.gestures[0]?.[0];
 
           let result: GestureResult | null = null;
@@ -155,7 +156,7 @@ export default function HandTracker({ onGesture, onHandDetected }: HandTrackerPr
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       }
     };
-  }, [drawLandmarks, onGesture, onHandDetected]);
+  }, [drawLandmarks, onGesture, onHandDetected, levelId]);
 
   return (
     <div className="relative w-full h-full">
