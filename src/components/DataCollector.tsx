@@ -51,20 +51,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         setStatus('success');
         setMessage(`Recorded ${count} samples`);
 
-        // Also upload to cloud if enabled
-        if (isCloudEnabled()) {
-          const normalized = normalizeLocally(landmarks);
-          if (normalized.length === 63) {
-            uploadSample(currentSign.label, normalized).then(result => {
-              if (result.flagged) {
-                setUploadStatus(`⚠ Cloud rejected: ${result.reason}`);
-              } else if (result.success) {
-                setUploadStatus('✓ Uploaded to cloud');
-                getCloudStats().then(setCloudStats);
-              }
-            });
-          }
-        }
+        // Note: Cloud upload is manual via "Sync to Cloud" button
 
         if (count >= 15) {
           stopRecording();
