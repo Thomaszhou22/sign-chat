@@ -77,7 +77,7 @@ export default function LessonView({ level, progress, onUpdateProgress, onToggle
               onClick={onStartCollect}
               className="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-500 transition-colors"
             >
-              🎯 训练模型
+              🎯 Train Model
             </button>
             <button
               onClick={onStartPractice}

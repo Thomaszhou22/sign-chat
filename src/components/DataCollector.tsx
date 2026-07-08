@@ -14,24 +14,19 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [status, setStatus] = useState<'ready' | 'recording' | 'success'>('ready');
-  const [message, setMessage] = useState('点击「开始录制」按钮，然后做出手势');
+  const [message, setMessage] = useState('Click "Start Recording" and hold the sign');
   const [stats, setStats] = useState<Record<string, number>>({});
   const [handDetected, setHandDetected] = useState(false);
   const lastSampleTimeRef = useRef(0);
 
   const currentSign = level.signs[currentIndex];
 
-  // Load stats on mount and after each recording
   useEffect(() => {
     setStats(getTrainingStats());
   }, [level.id, status]);
 
-  const handleGestureDetected = useCallback((_result: GestureResult | null) => {
-    // This is called by HandTracker when a stable gesture is detected
-    // We don't use the result here - DataCollector records raw landmarks
-  }, []);
+  const handleGestureDetected = useCallback((_result: GestureResult | null) => {}, []);
 
-  // Listen for landmarks data from HandTracker
   useEffect(() => {
     const handleLandmarksData = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -39,7 +34,6 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         const landmarks = customEvent.detail.landmarks;
         const now = Date.now();
         
-        // Record at most 1 sample per 300ms
         if (now - lastSampleTimeRef.current < 300) return;
         lastSampleTimeRef.current = now;
 
@@ -49,12 +43,11 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         
         const count = newStats[currentSign.label] || 0;
         setStatus('success');
-        setMessage(`已录制 ${count} 个样本`);
+        setMessage(`Recorded ${count} samples`);
 
-        // Auto-advance after 15 samples
         if (count >= 15) {
           stopRecording();
-          setMessage(`「${currentSign.label}」已收集 ${count} 个样本`);
+          setMessage(`"${currentSign.label}" collected ${count} samples. Ready for next!`);
         }
       }
     };
@@ -66,7 +59,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
   const startRecording = () => {
     setIsRecording(true);
     setStatus('recording');
-    setMessage('正在录制... 请保持手势稳定，可以微调角度');
+    setMessage('Recording... Hold the sign steady, you can adjust angle slightly');
   };
 
   const stopRecording = () => {
@@ -78,7 +71,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
     if (currentIndex < level.signs.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setStatus('ready');
-      setMessage('点击「开始录制」按钮，然后做出手势');
+      setMessage('Click "Start Recording" and hold the sign');
     }
   };
 
@@ -86,15 +79,15 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
       setStatus('ready');
-      setMessage('点击「开始录制」按钮，然后做出手势');
+      setMessage('Click "Start Recording" and hold the sign');
     }
   };
 
   const handleClearAll = () => {
-    if (confirm('确定要清除所有训练数据吗？这将重置 k-NN 模型。')) {
+    if (confirm('Are you sure you want to clear all training data? This will reset the k-NN model.')) {
       clearTrainingData();
       setStats({});
-      setMessage('所有训练数据已清除');
+      setMessage('All training data cleared');
     }
   };
 
@@ -110,12 +103,12 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
           onClick={onBack}
           className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
         >
-          ← 返回
+          ← Back
         </button>
         <div className="flex items-center gap-3">
           {hasData && (
             <span className="text-sm text-green-400">
-              ✓ k-NN 模型已激活 ({totalSamples} 个样本)
+              ✓ k-NN model active ({totalSamples} samples)
             </span>
           )}
           <button
@@ -123,16 +116,16 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
             className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500 transition-colors text-sm"
             disabled={!hasData}
           >
-            清除训练数据
+            Clear Training Data
           </button>
         </div>
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-        <h2 className="text-2xl font-bold mb-4">训练数据收集</h2>
+        <h2 className="text-2xl font-bold mb-4">Training Data Collection</h2>
         <p className="text-gray-400 mb-6">
-          为每个手势录制 15 个样本。k-NN 分类器会根据这些样本识别你的手势。
-          录制时请面对摄像头，做出准确的手势，可以稍微变换角度和距离以提高鲁棒性。
+          Record 15 samples for each sign. The k-NN classifier will use these samples to recognize your gestures.
+          Face the camera, make accurate signs, and vary angle/distance slightly for robustness.
         </p>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -154,7 +147,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-2.5 h-2.5 rounded-full ${handDetected ? 'bg-green-500' : 'bg-gray-600'}`} />
                 <span className="text-sm text-gray-400">
-                  {handDetected ? '手已检测到' : '请将手放入摄像头'}
+                  {handDetected ? 'Hand detected' : 'Show your hand to camera'}
                 </span>
               </div>
               <p className={`text-lg font-semibold ${
@@ -171,7 +164,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
           <div className="space-y-4">
             <div className="bg-gray-800 rounded-xl p-6">
               <div className="text-center mb-6">
-                <p className="text-sm text-gray-400 mb-2">当前手势：</p>
+                <p className="text-sm text-gray-400 mb-2">Current sign:</p>
                 <div className="flex justify-center mb-4">
                   <SignImage label={currentSign.label} imageUrl={currentSign.imageUrl} size="md" />
                 </div>
@@ -181,7 +174,7 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
 
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">已录制样本</span>
+                  <span className="text-sm text-gray-400">Samples recorded</span>
                   <span className="text-sm font-semibold text-cyan-400">
                     {getSampleCount(currentSign.label)} / 15
                   </span>
@@ -201,14 +194,14 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
                     className="flex-1 px-6 py-3 bg-red-600 rounded-lg hover:bg-red-500 transition-colors font-semibold"
                     disabled={!handDetected}
                   >
-                    {handDetected ? '🎥 开始录制' : '请先展示手掌'}
+                    {handDetected ? '🎥 Start Recording' : 'Show your hand first'}
                   </button>
                 ) : (
                   <button
                     onClick={stopRecording}
                     className="flex-1 px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-semibold"
                   >
-                    ⏹ 停止录制
+                    ⏹ Stop Recording
                   </button>
                 )}
               </div>
@@ -219,20 +212,20 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
                   disabled={currentIndex === 0}
                   className="flex-1 px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
                 >
-                  ← 上一个
+                  ← Previous
                 </button>
                 <button
                   onClick={handleNext}
                   disabled={currentIndex === level.signs.length - 1}
                   className="flex-1 px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
                 >
-                  下一个 →
+                  Next →
                 </button>
               </div>
             </div>
 
             <div className="bg-gray-800 rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-3 text-gray-300">收集进度</h3>
+              <h3 className="text-sm font-semibold mb-3 text-gray-300">Collection Progress</h3>
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                 {level.signs.map((sign) => {
                   const count = getSampleCount(sign.label);
@@ -265,14 +258,14 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-        <h3 className="text-lg font-semibold mb-4">使用说明</h3>
+        <h3 className="text-lg font-semibold mb-4">Instructions</h3>
         <ul className="space-y-2 text-sm text-gray-400">
-          <li>• 每个手势录制 15 个样本，k-NN 模型会自动激活</li>
-          <li>• 录制时保持手势稳定，面对摄像头</li>
-          <li>• 可以在不同光线、角度、距离下录制以提高鲁棒性</li>
-          <li>• 录制完成后，练习和测试中的识别准确率会大幅提升</li>
-          <li>• k-NN 优先，规则识别兜底，两者结合使用</li>
-          <li>• 总样本数：{totalSamples} / {level.signs.length * 15}</li>
+          <li>• Record 15 samples per sign to activate the k-NN model</li>
+          <li>• Hold the sign steady while facing the camera</li>
+          <li>• Vary lighting, angle, and distance for better robustness</li>
+          <li>• Once trained, recognition accuracy will improve significantly in practice and tests</li>
+          <li>• k-NN takes priority, rule-based classification as fallback</li>
+          <li>• Total samples: {totalSamples} / {level.signs.length * 15}</li>
         </ul>
       </div>
     </div>
