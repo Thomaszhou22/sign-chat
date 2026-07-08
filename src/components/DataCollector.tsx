@@ -3,7 +3,8 @@ import type { Level } from '../data/curriculum';
 import HandTracker from './HandTracker';
 import SignImage from './SignImage';
 import type { GestureResult } from '../lib/gestureRecognizer';
-import { addTrainingSample, clearTrainingData, getTrainingStats } from '../lib/knnClassifier';
+import { addTrainingSample, clearTrainingData, getTrainingStats, syncLocalToCloud } from '../lib/knnClassifier';
+import { uploadSample, isCloudEnabled, getCloudStats } from '../lib/trainingApi';
 
 interface DataCollectorProps {
   level: Level;
@@ -16,6 +17,8 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
   const [status, setStatus] = useState<'ready' | 'recording' | 'success'>('ready');
   const [message, setMessage] = useState('Click "Start Recording" and hold the sign');
   const [stats, setStats] = useState<Record<string, number>>({});
+  const [cloudStats, setCloudStats] = useState<Record<string, number>>({});
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const [handDetected, setHandDetected] = useState(false);
   const lastSampleTimeRef = useRef(0);
 
@@ -23,6 +26,9 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
 
   useEffect(() => {
     setStats(getTrainingStats());
+    if (isCloudEnabled()) {
+      getCloudStats().then(setCloudStats);
+    }
   }, [level.id, status]);
 
   const handleGestureDetected = useCallback((_result: GestureResult | null) => {}, []);
@@ -44,6 +50,21 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         const count = newStats[currentSign.label] || 0;
         setStatus('success');
         setMessage(`Recorded ${count} samples`);
+
+        // Also upload to cloud if enabled
+        if (isCloudEnabled()) {
+          const normalized = normalizeLocally(landmarks);
+          if (normalized.length === 63) {
+            uploadSample(currentSign.label, normalized).then(result => {
+              if (result.flagged) {
+                setUploadStatus(`⚠ Cloud rejected: ${result.reason}`);
+              } else if (result.success) {
+                setUploadStatus('✓ Uploaded to cloud');
+                getCloudStats().then(setCloudStats);
+              }
+            });
+          }
+        }
 
         if (count >= 15) {
           stopRecording();
@@ -94,7 +115,27 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
   const getSampleCount = (label: string) => stats[label] || 0;
 
   const totalSamples = Object.values(stats).reduce((a, b) => a + b, 0);
-  const hasData = totalSamples > 0;
+  const totalCloudSamples = Object.values(cloudStats).reduce((a, b) => a + b, 0);
+  const hasData = totalSamples > 0 || totalCloudSamples > 0;
+
+  // Simple local normalize for cloud upload
+  function normalizeLocally(landmarks: any[]): number[] {
+    if (!landmarks || landmarks.length < 21) return [];
+    const wrist = landmarks[0];
+    let maxDist = 0;
+    for (const lm of landmarks) {
+      const d = Math.sqrt((lm.x - wrist.x) ** 2 + (lm.y - wrist.y) ** 2 + (lm.z - wrist.z) ** 2);
+      if (d > maxDist) maxDist = d;
+    }
+    if (maxDist < 0.001) maxDist = 0.001;
+    const out: number[] = [];
+    for (const lm of landmarks) {
+      out.push((lm.x - wrist.x) / maxDist);
+      out.push((lm.y - wrist.y) / maxDist);
+      out.push((lm.z - wrist.z) / maxDist);
+    }
+    return out;
+  }
 
   return (
     <div className="space-y-6">
@@ -108,8 +149,21 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         <div className="flex items-center gap-3">
           {hasData && (
             <span className="text-sm text-green-400">
-              ✓ k-NN model active ({totalSamples} samples)
+              ✓ k-NN model active (local: {totalSamples}, cloud: {totalCloudSamples})
             </span>
+          )}
+          {isCloudEnabled() && (
+            <button
+              onClick={async () => {
+                setUploadStatus('Syncing to cloud...');
+                const result = await syncLocalToCloud();
+                setUploadStatus(`Synced: ${result.uploaded} uploaded, ${result.flagged} flagged, ${result.failed} failed`);
+                getCloudStats().then(setCloudStats);
+              }}
+              className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors text-sm"
+            >
+              Sync to Cloud
+            </button>
           )}
           <button
             onClick={handleClearAll}
@@ -157,6 +211,9 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
               }`}>
                 {message}
               </p>
+              {uploadStatus && (
+                <p className="text-xs text-gray-500 mt-1">{uploadStatus}</p>
+              )}
             </div>
           </div>
 
@@ -261,11 +318,11 @@ export default function DataCollector({ level, onBack }: DataCollectorProps) {
         <h3 className="text-lg font-semibold mb-4">Instructions</h3>
         <ul className="space-y-2 text-sm text-gray-400">
           <li>• Record 15 samples per sign to activate the k-NN model</li>
-          <li>• Hold the sign steady while facing the camera</li>
-          <li>• Vary lighting, angle, and distance for better robustness</li>
-          <li>• Once trained, recognition accuracy will improve significantly in practice and tests</li>
-          <li>• k-NN takes priority, rule-based classification as fallback</li>
-          <li>• Total samples: {totalSamples} / {level.signs.length * 15}</li>
+          <li>• Samples are saved locally and uploaded to cloud (shared with all users)</li>
+          <li>• Outlier detection prevents bad data: samples too different from existing data are rejected</li>
+          <li>• Cross-label check: if your sample looks like a different sign, it gets flagged</li>
+          <li>• Cloud data from all users improves recognition for everyone</li>
+          <li>• Total: local {totalSamples} / cloud {totalCloudSamples} samples</li>
         </ul>
       </div>
     </div>
