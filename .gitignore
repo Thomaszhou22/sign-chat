@@ -33,3 +33,4 @@ __pycache__/
 training/models/
 training/data/*.csv
 .vercel
+.env

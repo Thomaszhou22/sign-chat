@@ -26,6 +26,70 @@ export function isCloudEnabled(): boolean {
   return supabase !== null;
 }
 
+// ===== Duplicate detection =====
+// Hash a landmarks array to detect exact duplicates
+function hashLandmarks(landmarks: number[]): string {
+  // Round to 4 decimal places to avoid float noise, then hash
+  const rounded = landmarks.map(v => Math.round(v * 10000) / 10000);
+  return JSON.stringify(rounded);
+}
+
+// Check recent uploads for this user to prevent duplicates
+const RECENT_UPLOAD_LIMIT = 50; // keep last 50 uploads in memory
+const recentUploads: Map<string, number> = new Map(); // hash -> timestamp
+
+function isDuplicate(landmarks: number[]): boolean {
+  const hash = hashLandmarks(landmarks);
+  const now = Date.now();
+  const WINDOW_MS = 10 * 60 * 1000; // 10 minute window
+
+  // Check if we've seen this exact data recently
+  const lastSeen = recentUploads.get(hash);
+  if (lastSeen && now - lastSeen < WINDOW_MS) {
+    return true; // exact duplicate within 10 min
+  }
+
+  // Track this upload
+  recentUploads.set(hash, now);
+
+  // Prune old entries
+  if (recentUploads.size > RECENT_UPLOAD_LIMIT) {
+    for (const [h, t] of recentUploads.entries()) {
+      if (now - t > WINDOW_MS) {
+        recentUploads.delete(h);
+      }
+    }
+  }
+
+  return false;
+}
+
+// Also check cloud for exact duplicates (same user_hash + same landmarks)
+async function isCloudDuplicate(label: string, _landmarks: number[]): Promise<boolean> {
+  if (!supabase) return false;
+  const sb = supabase!;
+  const userHash = getUserHash();
+
+  // Check if this user already uploaded too many samples for this label
+  const { data } = await sb
+    .from('asl_training_samples')
+    .select('id')
+    .eq('label', label)
+    .eq('user_hash', userHash)
+    .limit(50);
+
+  if (!data || data.length === 0) return false;
+
+  // If user already uploaded > 30 samples for this label, reject
+  if (data.length >= 30) {
+    return true;
+  }
+
+  return false;
+}
+
+// ===== Upload =====
+
 // Upload a single training sample to cloud
 export async function uploadSample(
   label: string,
@@ -33,7 +97,18 @@ export async function uploadSample(
 ): Promise<{ success: boolean; flagged: boolean; reason?: string }> {
   if (!supabase) return { success: false, flagged: false, reason: 'Cloud not configured' };
 
-  // 1. Outlier detection BEFORE uploading
+  // 1. Local duplicate check (instant, no network)
+  if (isDuplicate(landmarks)) {
+    return { success: false, flagged: true, reason: 'Exact duplicate data — already uploaded recently' };
+  }
+
+  // 2. Cloud rate limit check (same user, same label)
+  const rateLimited = await isCloudDuplicate(label, landmarks);
+  if (rateLimited) {
+    return { success: false, flagged: true, reason: 'Upload limit reached for this sign (max 30 per user per label)' };
+  }
+
+  // 3. Outlier detection BEFORE uploading
   const outlierCheck = await checkOutlier(label, landmarks);
   if (outlierCheck.isOutlier) {
     return {
@@ -43,7 +118,7 @@ export async function uploadSample(
     };
   }
 
-  // 2. Upload
+  // 4. Upload
   const sb = supabase!;
   const { error } = await sb.from('asl_training_samples').insert({
     label,
