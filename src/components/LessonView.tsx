@@ -18,15 +18,17 @@ interface LessonViewProps {
 export default function LessonView({ level, progress, onUpdateProgress, onToggleCompleted, onStartPractice, onStartTest, onStartReview, onStartCollect }: LessonViewProps) {
   const [selectedSign, setSelectedSign] = useState<ASLSign | null>(null);
   const [detectedGesture, setDetectedGesture] = useState<GestureResult | null>(null);
+  const [practiceEnabled, setPracticeEnabled] = useState(false);
   const [handDetected, setHandDetected] = useState(false);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [practiceAttempts, setPracticeAttempts] = useState(0);
 
-  // Reset feedback when sign changes
+  // Reset practice when sign changes
   useEffect(() => {
     if (selectedSign) {
       setFeedback(null);
       setPracticeAttempts(0);
+      setPracticeEnabled(false);
     }
   }, [selectedSign]);
 
@@ -225,52 +227,73 @@ export default function LessonView({ level, progress, onUpdateProgress, onToggle
         <div className="space-y-6">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
             <h3 className="text-xl font-semibold mb-4 text-white">Practice This Sign</h3>
-            <p className="text-gray-400 mb-4">Show the sign to your camera to practice</p>
+            {!practiceEnabled ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 mb-4">Enable camera to practice this sign with real-time feedback</p>
+                <button
+                  onClick={() => setPracticeEnabled(true)}
+                  className="px-6 py-3 bg-cyan-600 rounded-lg hover:bg-cyan-500 transition-colors font-semibold"
+                >
+                  📷 Start Practice
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-400 mb-4">Show the sign to your camera to practice</p>
 
-            <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-800 mb-4">
-              <HandTracker
-                onGesture={handleGestureDetected}
-                onHandDetected={setHandDetected}
-                levelId={level.id}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 mb-4">
-              <div className={`w-3 h-3 rounded-full ${handDetected ? 'bg-green-500' : 'bg-gray-600'}`} />
-              <span className="text-sm text-gray-400">
-                {handDetected ? 'Hand detected' : 'Show your hand to camera'}
-              </span>
-            </div>
-
-            {detectedGesture && (
-              <div className={`rounded-xl p-4 border ${
-                feedback === 'correct' ? 'bg-green-900/20 border-green-700' :
-                feedback === 'wrong' ? 'bg-red-900/20 border-red-700' :
-                'bg-gray-800 border-gray-700'
-              }`}>
-                <p className="text-sm text-gray-400 mb-2">Detected:</p>
-                <div className={`text-3xl font-bold ${
-                  feedback === 'correct' ? 'text-green-400' :
-                  feedback === 'wrong' ? 'text-red-400' :
-                  'text-gray-400'
-                }`}>
-                  {detectedGesture.label}
-                  {feedback === 'correct' && ' ✓'}
-                  {feedback === 'wrong' && ' ✗'}
+                <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-800 mb-4">
+                  <HandTracker
+                    onGesture={handleGestureDetected}
+                    onHandDetected={setHandDetected}
+                    levelId={level.id}
+                  />
                 </div>
-              </div>
-            )}
 
-            {practiceAttempts > 0 && !isMastered && (
-              <div className="mt-4 text-sm text-gray-400">
-                Attempts: {practiceAttempts}
-              </div>
-            )}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className={`w-3 h-3 rounded-full ${handDetected ? 'bg-green-500' : 'bg-gray-600'}`} />
+                  <span className="text-sm text-gray-400">
+                    {handDetected ? 'Hand detected' : 'Show your hand to camera'}
+                  </span>
+                </div>
 
-            {isMastered && (
-              <div className="mt-4 p-4 bg-green-900/20 border border-green-700 rounded-xl">
-                <p className="text-green-400 font-semibold">✓ You've mastered this sign!</p>
-              </div>
+                {detectedGesture && (
+                  <div className={`rounded-xl p-4 border ${
+                    feedback === 'correct' ? 'bg-green-900/20 border-green-700' :
+                    feedback === 'wrong' ? 'bg-red-900/20 border-red-700' :
+                    'bg-gray-800 border-gray-700'
+                  }`}>
+                    <p className="text-sm text-gray-400 mb-2">Detected:</p>
+                    <div className={`text-3xl font-bold ${
+                      feedback === 'correct' ? 'text-green-400' :
+                      feedback === 'wrong' ? 'text-red-400' :
+                      'text-gray-400'
+                    }`}>
+                      {detectedGesture.label}
+                      {feedback === 'correct' && ' ✓'}
+                      {feedback === 'wrong' && ' ✗'}
+                    </div>
+                  </div>
+                )}
+
+                {practiceAttempts > 0 && !isMastered && (
+                  <div className="mt-4 text-sm text-gray-400">
+                    Attempts: {practiceAttempts}
+                  </div>
+                )}
+
+                {isMastered && (
+                  <div className="mt-4 p-4 bg-green-900/20 border border-green-700 rounded-xl">
+                    <p className="text-green-400 font-semibold">✓ You've mastered this sign!</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setPracticeEnabled(false)}
+                  className="mt-4 px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                >
+                  ⏹ Stop Practice
+                </button>
+              </>
             )}
           </div>
         </div>

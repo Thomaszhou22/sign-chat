@@ -131,7 +131,14 @@ export default function HandTracker({ onGesture, onHandDetected, levelId }: Hand
             const builtIn = results.gestures[0]?.[0];
 
             let result: GestureResult | null = null;
-            if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7) {
+            // Only use built-in MediaPipe gestures if the label is in our curriculum
+            const knownLabels = new Set([
+              'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+              '0','1','2','3','4','5','6','7','8','9',
+              'Hello','Thank you','Please','Yes','No','Sorry','Help','Good','Bad','Friend','Love','Name',
+              'How are you','My name is','Nice to meet you','I love you','See you later','Good morning','Good night','Excuse me',
+            ]);
+            if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7 && knownLabels.has(builtIn.categoryName)) {
               result = { label: builtIn.categoryName, category: 'phrase', confidence: builtIn.score };
             } else if (hybridResult) {
               result = { 
