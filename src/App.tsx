@@ -5,10 +5,11 @@ import PracticeView from './components/PracticeView';
 import TestMode from './components/TestMode';
 import ReviewMode from './components/ReviewMode';
 import StatsView from './components/StatsView';
+import DataCollector from './components/DataCollector';
 import { curriculum } from './data/curriculum';
 import type { Level } from './data/curriculum';
 
-type View = 'courses' | 'lesson' | 'practice' | 'test' | 'review' | 'stats';
+type View = 'courses' | 'lesson' | 'practice' | 'test' | 'review' | 'stats' | 'collect';
 
 interface Progress {
   [levelId: string]: {
@@ -94,6 +95,10 @@ export default function App() {
     setView('review');
   };
 
+  const handleStartCollect = () => {
+    setView('collect');
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="border-b border-gray-800 px-6 py-4">
@@ -155,6 +160,7 @@ export default function App() {
             onStartPractice={handleStartPractice}
             onStartTest={handleStartTest}
             onStartReview={handleStartReview}
+            onStartCollect={handleStartCollect}
           />
         )}
 
@@ -183,6 +189,13 @@ export default function App() {
 
         {view === 'stats' && (
           <StatsView />
+        )}
+
+        {view === 'collect' && currentLevel && (
+          <DataCollector
+            level={currentLevel}
+            onBack={handleBack}
+          />
         )}
       </main>
     </div>

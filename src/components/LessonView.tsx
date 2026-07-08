@@ -12,9 +12,10 @@ interface LessonViewProps {
   onStartPractice: () => void;
   onStartTest: () => void;
   onStartReview: () => void;
+  onStartCollect: () => void;
 }
 
-export default function LessonView({ level, progress, onUpdateProgress, onToggleCompleted, onStartPractice, onStartTest, onStartReview }: LessonViewProps) {
+export default function LessonView({ level, progress, onUpdateProgress, onToggleCompleted, onStartPractice, onStartTest, onStartReview, onStartCollect }: LessonViewProps) {
   const [selectedSign, setSelectedSign] = useState<ASLSign | null>(null);
   const [detectedGesture, setDetectedGesture] = useState<GestureResult | null>(null);
   const [handDetected, setHandDetected] = useState(false);
@@ -72,6 +73,12 @@ export default function LessonView({ level, progress, onUpdateProgress, onToggle
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-white">{level.name}</h2>
           <div className="flex gap-3">
+            <button
+              onClick={onStartCollect}
+              className="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-500 transition-colors"
+            >
+              🎯 训练模型
+            </button>
             <button
               onClick={onStartPractice}
               className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-500 transition-colors"

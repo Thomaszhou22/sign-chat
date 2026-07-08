@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { FilesetResolver, GestureRecognizer } from '@mediapipe/tasks-vision';
 import type { GestureRecognizerResult } from '@mediapipe/tasks-vision';
-import { analyzeHand, classifyGesture } from '../lib/gestureRecognizer';
 import type { GestureResult } from '../lib/gestureRecognizer';
+import { classifyHybrid } from '../lib/knnClassifier';
 
 interface HandTrackerProps {
   onGesture: (result: GestureResult | null) => void;
@@ -102,15 +102,25 @@ export default function HandTracker({ onGesture, onHandDetected, levelId }: Hand
           onHandDetected(true);
           const landmarks = results.landmarks[0];
           const handedness = results.handednesses[0]?.[0]?.categoryName === 'Left' ? 'right' : 'left';
-          const hand = analyzeHand(landmarks, handedness);
-          const customResult = classifyGesture(hand, levelId);
+          
+          // Send landmarks to any listening DataCollector
+          window.dispatchEvent(new CustomEvent('landmarks-data', { 
+            detail: { landmarks: landmarks.map((lm: any) => ({ x: lm.x, y: lm.y, z: lm.z })) } 
+          }));
+          
+          // Use hybrid classifier: k-NN first (if training data exists), then rule-based fallback
+          const hybridResult = classifyHybrid(landmarks, handedness, levelId);
           const builtIn = results.gestures[0]?.[0];
 
           let result: GestureResult | null = null;
           if (builtIn && builtIn.categoryName !== 'None' && builtIn.score > 0.7) {
             result = { label: builtIn.categoryName, category: 'phrase', confidence: builtIn.score };
-          } else if (customResult) {
-            result = customResult;
+          } else if (hybridResult) {
+            result = { 
+              label: hybridResult.label, 
+              category: hybridResult.source === 'knn' ? 'letter' : 'letter', 
+              confidence: hybridResult.confidence 
+            };
           }
 
           if (result) {
