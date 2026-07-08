@@ -80,7 +80,7 @@ export default function App() {
             >
               📊 Stats
             </button>
-            {view !== 'courses' && view !== 'stats' && (
+            {view !== 'courses' && (
               <button
                 onClick={handleBack}
                 className="px-4 py-2 bg-gray-800 rounded-lg text-sm hover:bg-gray-700 transition-colors"
