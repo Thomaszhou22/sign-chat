@@ -1,32 +1,30 @@
-# React + TypeScript + Vite
+# Sign Chat — Sign-Language Practice
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Helping the families and friends of deaf people learn sign language. Practice signs with live camera feedback; every gesture upload you share helps retrain the recognition model — the app improves because people use it.
 
-Currently, two official plugins are available:
+**Live:** [sign-chat.vercel.app](https://sign-chat.vercel.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**English** | **[中文](README.zh-CN.md)**
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 📷 **Camera gesture practice** — try a sign, get live feedback on your attempt
+- 🤝 **Community-powered model** — consented gesture uploads retrain the recognition model
+- 🎯 **For hearing families & friends** — built for the people around deaf individuals, not just sign-language students
 
-## Expanding the Oxlint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- React + TypeScript + Vite
+- Browser camera API + gesture recognition model
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Development
+
+```bash
+npm install
+npm run dev
+npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## License
+
+MIT
